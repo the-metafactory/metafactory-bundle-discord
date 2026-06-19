@@ -18,7 +18,11 @@ authors:
 license: MIT
 
 provides:
-  # The skill (CLI-wrapping post/read/role/threads) and the CLI binary shim.
+  # Two skills + the CLI binary shim. The primary `skill/` (CLI-wrapping
+  # post/read/role/threads) lands at ~/.claude/skills/Discord; the sibling
+  # `skill-fleet-admit/` (the trusted-executor fleet-admission procedure)
+  # lands at ~/.claude/skills/FleetAdmit. Both are honored by arc's
+  # type-agnostic provides.files pass (each source dir symlinked to its target).
   # Targets mirror the cortex install layout this bundle replaces:
   #   src/cli/discord/discord.ts → ~/bin/discord
   #   src/cli/discord/skill      → ~/.claude/skills/Discord
@@ -27,6 +31,8 @@ provides:
       target: ~/bin/discord
     - source: skill
       target: ~/.claude/skills/Discord
+    - source: skill-fleet-admit
+      target: ~/.claude/skills/FleetAdmit
   skill:
     - name: Discord
       path: skill/
@@ -36,6 +42,14 @@ provides:
     - trigger: "discord thread"
     - trigger: "discord channel"
     - trigger: "announce"
+    - name: FleetAdmit
+      path: skill-fleet-admit/
+      trigger: "admit to the fleet"
+    - trigger: "grant community-fleet"
+    - trigger: "let them into assistant-fleet"
+    - trigger: "admit request"
+    - trigger: "admit them to the network"
+    - trigger: "onboard to chat tier"
   cli:
     - name: discord
       command: bun cli/discord.ts
