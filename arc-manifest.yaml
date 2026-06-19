@@ -41,6 +41,24 @@ provides:
       command: bun cli/discord.ts
       description: "Post messages, read channels, and manage threads/roles on Discord from the terminal."
 
+# Capability surface (arc/v1 requires this for type: skill).
+capabilities:
+  filesystem:
+    # The CLI reads/writes its config (cli.yaml) under the cortex config dir,
+    # cortex-first with a legacy grove-side read-fallback that migrates on first write.
+    read:
+      - ~/.config/cortex/cli.yaml
+      - ~/.config/grove/cli.yaml
+    write:
+      - ~/.config/cortex/cli.yaml
+  network:
+    - domain: discord.com
+      reason: Discord REST API (https://discord.com/api/v10) — post/read messages, threads, roles
+  bash:
+    allowed: false
+  # The Discord bot token is read from cli.yaml (config), not from an env var/secret.
+  secrets: []
+
 # The CLI talks to the Discord REST API directly via fetch (no discord.js).
 # Its only runtime deps are commander + yaml (see package.json).
 depends_on:
