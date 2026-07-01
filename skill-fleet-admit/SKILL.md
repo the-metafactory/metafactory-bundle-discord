@@ -105,16 +105,21 @@ never batched.
 **Step A — admit** (promote the PENDING request to ADMITTED on the roster):
 
 ```bash
-cortex network admit <request-id> --network <net> --admin-seed <network-admin-seed> --apply
+cortex network admit <request-id> --admin-seed <network-admin-seed> --apply
 ```
 
+- **`admit` takes no `--network` flag** — the request's network is fixed at
+  register time and read from the stored request row, so the request-id alone
+  identifies the network. (Do not pass `--network`; the CLI rejects unknown
+  flags and the command aborts. Tracked in cortex#1145.)
 - `<network-admin-seed>` is the **network-admin** seed — the key that signs
   admission decisions. Supplied by the principal, never hardcoded (Safety rule 4).
 - Registry defaults to the network registry; pass `--registry-url <url>` to
   override. Omitting `--apply` (or passing `--dry-run`) prints the plan and
   touches nothing.
-- Step A's output shows the admission row, **including the member's leaf
-  pubkey** — capture it; you need it verbatim for Step B.
+- Step A prints an admit confirmation (request-id, principal, admin fingerprint).
+  It does **not** print the member's leaf pubkey today — you obtain that pubkey
+  separately for Step B (see Step B's first bullet). Tracked in cortex#1315.
 
 **Step B — seal** (deliver the member's leaf secret so the leaf can connect):
 
@@ -122,8 +127,25 @@ cortex network admit <request-id> --network <net> --admin-seed <network-admin-se
 cortex network secret add-member <net> <member-pubkey> --admin-seed <hub-admin-seed> --apply
 ```
 
-- `<member-pubkey>` is the member's 32-byte Ed25519 pubkey (base64, 44 chars)
-  **taken from Step A's admission row** — do not invent, guess, or reformat it.
+- `<net>` is the network id the member is being admitted to (the same network the
+  PENDING request targets). Confirm it with the principal — `secret add-member`
+  requires it as a positional.
+- `<member-pubkey>` is the member's **leaf pubkey** — a 32-byte Ed25519 key,
+  base64 (44 chars). **It is NOT in Step A's output today** — obtain it from one of
+  these real sources (do not invent, guess, or reformat it):
+  1. **The member's own registration output.** When the member ran
+     `cortex provision-stack register`, it printed `pubkey (b64): <44-char-key>` +
+     a fingerprint. Have them share that pubkey in the onboarding thread — it is
+     the leaf key you seal to.
+  2. **The admission request row.** The row carries the member's `peer_pubkey`
+     (base64, 44 chars) — visible in the Mission Control Pier onboarding queue, or
+     via an admin-signed registry read of the PENDING request. Use that value.
+
+  Cross-check the two if you have both; they must match. If you cannot obtain a
+  44-char pubkey from a trusted source, STOP and ask the principal — never fabricate
+  one. *(TODO: cortex#1315 will surface the member pubkey + sealed-delivery state in
+  `admit` output; once it ships, read the pubkey straight from Step A and delete this
+  sourcing list.)*
 - `<hub-admin-seed>` is the **hub-admin** seed (the operator-mode hub) — a
   **different seed** from Step A's network-admin seed. Supplied by the principal;
   never reuse Step A's seed here by assumption (Safety rule 4).
@@ -138,15 +160,19 @@ Steps:
 
 1. **Confirm the request-id.** Echo the exact PENDING request id back to the
    principal and confirm it is the one they mean.
-2. **Confirm you are not approving your own request** (Safety rule 3).
+2. **Confirm you are not acting on your own request** (Safety rule 3) — you must
+   neither **admit** nor **seal** a request created by, or on behalf of, your own
+   identity. The two-party rule applies to **both** steps.
 3. **Obtain BOTH seeds from the principal** (Safety rule 4): the network-admin
    seed for Step A and the hub-admin seed for Step B. They are different — do not
    substitute one for the other.
-4. **Step A:** echo-and-confirm, run with `--apply`, then capture the member leaf
-   pubkey from the output.
-5. **Step B:** echo-and-confirm **separately**, then run with `--apply` using the
-   pubkey from Step A.
-6. **Report both outcomes** — admit ok AND seal ok — back to the principal. A
+4. **Obtain the member's leaf pubkey** from a trusted source (see Step B's first
+   bullet — the member's `provision-stack register` output, or the admission-request
+   row / Pier queue). Step A's output does not contain it.
+5. **Step A:** echo-and-confirm, then run with `--apply`.
+6. **Step B:** echo-and-confirm **separately**, then run with `--apply` using the
+   member pubkey obtained in step 4.
+7. **Report both outcomes** — admit ok AND seal ok — back to the principal. A
    member is only *connectable* once Step B succeeds; if Step B did not succeed,
    say explicitly that the member is inert.
 
