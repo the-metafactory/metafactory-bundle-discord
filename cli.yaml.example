@@ -1,0 +1,43 @@
+# ~/.config/cortex/cli.yaml — example / schema reference ONLY.
+#
+# This file ships in the PUBLIC metafactory-discord repo. It documents the
+# config SHAPE only — every value below is a placeholder. Real guild IDs,
+# channel IDs, bot tokens, and the confidentiality-gate markers (`internal:`,
+# `publicChannelAllowlist:`) belong ONLY in the operator's own
+# ~/.config/cortex/cli.yaml, which is never committed anywhere (design doc
+# compass#81 §4 L2/L6 — deployment config never ships in a shippable path).
+
+botToken: "<REPLACE_ME: Discord bot token>"
+guildId: "<REPLACE_ME: top-level (grove) guild id>"
+defaultChannel: "general"
+
+channels:
+  general:
+    id: "<REPLACE_ME: channel snowflake>"
+
+# Confidentiality gate (compass#91, design doc §4 L6 "Discord", OD-5).
+#
+# `internal: true` marks a guild as never scanned before a `discord post` —
+# reserve this for a private, single-operator guild. FAIL-CLOSED default:
+# omit this field (or set it false) and the guild is treated as PUBLIC and
+# scanned. This field's VALUE is itself operator-private in the sense that
+# a real deployment's internal-guild id should never appear in a public
+# example — leave it commented out / false here.
+internal: false
+
+# OD-5: exempts specific known-public channel/guild snowflakes from the
+# platform-id-shape warn on THIS surface. Populate only with real, deliberately
+# public channel IDs (e.g. the community server's own public announcement
+# channel) — never a private/internal channel id.
+publicChannelAllowlist: []
+
+# Named server profiles — additional guilds the same bot token can post to.
+# Each profile supports the same `internal` / `publicChannelAllowlist`
+# overrides as the top-level config; when omitted they inherit nothing (a
+# profile's guild is public unless ITS OWN `internal: true` is set).
+servers:
+  community:
+    guildId: "<REPLACE_ME: community guild id>"
+    defaultChannel: "general"
+    internal: false
+    publicChannelAllowlist: []

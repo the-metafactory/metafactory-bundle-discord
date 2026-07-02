@@ -12,15 +12,17 @@ metafactory-discord/
   cli/
     discord.ts           # the CLI entrypoint (→ ~/bin/discord)
     lib/
-      config.ts          # ~/.config/cortex/cli.yaml config (cortex-first, grove-fallback)
-      config-path.ts     # vendored path resolver (the one helper cortex shared)
-      discord.ts         # Discord REST API ops (post/read/threads/roles) — raw fetch, no discord.js
-      server-context.ts  # multi-guild server-profile resolution
+      config.ts               # ~/.config/cortex/cli.yaml config (cortex-first, grove-fallback)
+      config-path.ts          # vendored path resolver (the one helper cortex shared)
+      confidentiality-gate.ts # public-post scan gate before postMessage* (compass#91)
+      discord.ts              # Discord REST API ops (post/read/threads/roles) — raw fetch, no discord.js
+      server-context.ts       # multi-guild server-profile resolution
     __tests__/           # standalone bun tests
   skill/
     SKILL.md             # the CLI-wrapping skill (→ ~/.claude/skills/Discord)
     Workflows/Post.md
     Workflows/Read.md
+  cli.yaml.example      # config schema reference — placeholders only, never real IDs/tokens
   package.json  tsconfig.json  README.md  CLAUDE.md  .gitignore
 ```
 
@@ -34,7 +36,13 @@ Repo-first (the bundle is **not** on the metafactory registry yet):
 arc install <git-url of metafactory-discord>
 ```
 
-This installs the `~/bin/discord` shim and the `Discord` skill at `~/.claude/skills/Discord`. Config lives at `~/.config/cortex/cli.yaml` (cortex-first, with a `~/.config/grove/cli.yaml` legacy fallback that migrates on first write).
+This installs the `~/bin/discord` shim and the `Discord` skill at `~/.claude/skills/Discord`. Config lives at `~/.config/cortex/cli.yaml` (cortex-first, with a `~/.config/grove/cli.yaml` legacy fallback that migrates on first write). See [`cli.yaml.example`](cli.yaml.example) for the schema — real guild/channel IDs and the confidentiality-gate markers below belong only in your own config, never committed here.
+
+## Confidentiality gate
+
+Before `discord post` sends a message, `cli/lib/confidentiality-gate.ts` classifies the resolved destination guild and — for any guild not explicitly marked `internal: true` in config — scans the message text and attachments through the shared metafactory confidentiality scan engine (installed via `arc upgrade compass`). See the module's doc comment and [`cli.yaml.example`](cli.yaml.example) for the `internal` / `publicChannelAllowlist` config fields.
+
+**This rollout is advisory (warn-only):** findings are logged to stderr and appended to `~/.config/metafactory/confidentiality/ack-log.jsonl`, but the post still sends. See design doc compass#81 §4 L6 ("Discord") + OD-5 for the full posture — enforcing the block on the live post path, the real `internal: true` guild registry, and the OD-5 public-channel allowlist values are deliberately deferred to the principal (this is the highest-volume egress path every teammate/agent uses, and the shared denylist isn't populated yet).
 
 ## Usage
 

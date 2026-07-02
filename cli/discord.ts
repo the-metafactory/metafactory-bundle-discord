@@ -13,6 +13,7 @@ import { cachedChannelId, resolveServerContext, registerServerProfile, ServerCon
 import type { ResolvedServerContext, ServerContextOptions } from "./lib/server-context";
 import type { DiscordCliConfig } from "./lib/config";
 import { postMessage, postMessageWithFiles, createThreadFromMessage, resolveChannelByName, resolveThreadByName, readMessages, listChannels, listThreads, assignRole, removeRole, resolveRoleId, type AttachmentInput } from "./lib/discord";
+import { gatePublicPost } from "./lib/confidentiality-gate";
 import { basename } from "node:path";
 
 // Per-command option shapes. Commander's typing is permissive; pinning each
@@ -154,6 +155,20 @@ program
     if (!targetId) {
       console.error("internal: no target id resolved");
       process.exit(1);
+    }
+
+    // Confidentiality gate (compass#91, design doc §4 L6 "Discord"). Resolves
+    // classification off the SAME guildId this command already resolved for
+    // channel/thread lookups. WARN-ONLY in this rollout — a block/warn signal
+    // is logged + acked but never stops the send; see confidentiality-gate.ts
+    // module doc for why the enforcing flip is a separate, principal-owned step.
+    const gate = gatePublicPost({ guildId: ctx.guildId, content: message, attachments, config });
+    if (!gate.ok) {
+      const tier = gate.blocked ? "BLOCK" : "warn";
+      console.error(`confidentiality-gate: ${tier}-tier finding(s) on guild ${ctx.guildId} (${gate.reason ?? "see ack-log"}) — advisory only, posting anyway`);
+      for (const f of gate.findings) {
+        console.error(`  [${f.action}] ${f.source}: ${f.class} (${f.ruleId}) — ${f.descriptor}`);
+      }
     }
 
     const result = attachments.length > 0
