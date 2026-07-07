@@ -1,0 +1,21 @@
+{
+  "name": "metafactory-discord",
+  "version": "0.2.0",
+  "description": "Discord CLI + skills bundle for the metafactory ecosystem (arc-installable; ADR-0017)",
+  "type": "module",
+  "bin": {
+    "discord": "cli/discord.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

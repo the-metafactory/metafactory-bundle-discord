@@ -1,0 +1,80 @@
+# arc-manifest.yaml — capability declaration
+# metafactory-discord: the Discord CLI + skills bundle extracted from cortex
+# per ADR-0017 (surface tooling distributed as arc bundles). Cortex keeps the
+# live Discord ADAPTER (src/adapters/discord/); only the TOOLING (CLI + skill)
+# lives here. Distribution is repo-first (arc install from the git repo); the
+# registry name `metafactory-discord` is reserved for a later publication step.
+schema: arc/v1
+name: discord
+namespace: metafactory
+version: 0.2.0
+type: skill
+tier: custom
+
+authors:
+  - name: Andreas
+    github: aastroem
+
+license: MIT
+
+provides:
+  # Two skills + the CLI binary shim. The primary `skill/` (CLI-wrapping
+  # post/read/role/threads) lands at ~/.claude/skills/Discord; the sibling
+  # `skill-fleet-admit/` (the trusted-executor fleet-admission procedure)
+  # lands at ~/.claude/skills/FleetAdmit. Both are honored by arc's
+  # type-agnostic provides.files pass (each source dir symlinked to its target).
+  # Targets mirror the cortex install layout this bundle replaces:
+  #   src/cli/discord/discord.ts → ~/bin/discord
+  #   src/cli/discord/skill      → ~/.claude/skills/Discord
+  files:
+    - source: cli/discord.ts
+      target: ~/bin/discord
+    - source: skill
+      target: ~/.claude/skills/Discord
+    - source: skill-fleet-admit
+      target: ~/.claude/skills/FleetAdmit
+  skill:
+    - name: Discord
+      path: skill/
+      trigger: "post to discord"
+    - trigger: "send message"
+    - trigger: "read discord"
+    - trigger: "discord thread"
+    - trigger: "discord channel"
+    - trigger: "announce"
+    - name: FleetAdmit
+      path: skill-fleet-admit/
+      trigger: "admit to the fleet"
+    - trigger: "grant community-fleet"
+    - trigger: "let them into assistant-fleet"
+    - trigger: "admit request"
+    - trigger: "admit them to the network"
+    - trigger: "onboard to chat tier"
+  cli:
+    - name: discord
+      command: bun cli/discord.ts
+      description: "Post messages, read channels, and manage threads/roles on Discord from the terminal."
+
+# Capability surface (arc/v1 requires this for type: skill).
+capabilities:
+  filesystem:
+    # The CLI reads/writes its config (cli.yaml) under the cortex config dir,
+    # cortex-first with a legacy grove-side read-fallback that migrates on first write.
+    read:
+      - ~/.config/cortex/cli.yaml
+      - ~/.config/grove/cli.yaml
+    write:
+      - ~/.config/cortex/cli.yaml
+  network:
+    - domain: discord.com
+      reason: Discord REST API (https://discord.com/api/v10) — post/read messages, threads, roles
+  bash:
+    allowed: false
+  # The Discord bot token is read from cli.yaml (config), not from an env var/secret.
+  secrets: []
+
+# The CLI talks to the Discord REST API directly via fetch (no discord.js).
+# Its only runtime deps are commander + yaml (see package.json).
+depends_on:
+  tools:
+    - name: bun
