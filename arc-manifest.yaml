@@ -58,13 +58,15 @@ provides:
 # Capability surface (arc/v1 requires this for type: skill).
 capabilities:
   filesystem:
-    # The CLI reads/writes its config (cli.yaml) under the cortex config dir,
-    # cortex-first with a legacy grove-side read-fallback that migrates on first write.
+    # The CLI reads/writes its config (cli.yaml) under the metafactory config
+    # tree (XDG wave-4): canonical-first, with the two pre-move trees as legacy
+    # read-fallbacks that migrate canonical-side on first write.
     read:
+      - ~/.config/metafactory/cortex/cli.yaml
       - ~/.config/cortex/cli.yaml
       - ~/.config/grove/cli.yaml
     write:
-      - ~/.config/cortex/cli.yaml
+      - ~/.config/metafactory/cortex/cli.yaml
   network:
     - domain: discord.com
       reason: Discord REST API (https://discord.com/api/v10) — post/read messages, threads, roles

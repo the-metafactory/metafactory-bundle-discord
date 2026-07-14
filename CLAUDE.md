@@ -11,7 +11,7 @@ This repo is the Discord **tooling** bundle for the metafactory ecosystem, extra
 
 - **Standalone — no cortex imports.** Nothing here may import from cortex or any `../`-escaping path. The one helper the CLI shared with cortex (`common/config/config-path`) is **vendored** at `cli/lib/config-path.ts`. If you add code that needs a cortex helper, vendor it here too — do not reach back into cortex.
 - **No discord.js.** The CLI uses the Discord REST API directly via `fetch`. Runtime deps are `commander` + `yaml` only. Do not add `discord.js` — that is the cortex adapter's dependency.
-- **Config location:** `~/.config/cortex/cli.yaml`, cortex-first with a `~/.config/grove/cli.yaml` legacy fallback (migrates on first write, mode-preserving). This mirrors cortex's GV-1 behavior; keep it in sync.
+- **Config location:** `~/.config/metafactory/cortex/cli.yaml` (XDG wave-4 canonical), with `~/.config/cortex/cli.yaml` then `~/.config/grove/cli.yaml` as legacy read-fallbacks (migrate canonical-side on first write, mode-preserving). `$CORTEX_CONFIG_DIR` overrides the whole tree verbatim. This mirrors cortex's resolver — the vendored copy at `cli/lib/config-path.ts` carries a pinned-version marker + a drift test (`cli/__tests__/config-path.drift.test.ts`) that fails if it forks from cortex, so "keep it in sync" is now a mechanism, not a promise: on drift, re-vendor and bump the pin.
 - **Install targets** (mirror what cortex installed before extraction):
   - `cli/discord.ts` → `~/bin/discord`
   - `skill/` → `~/.claude/skills/Discord`
