@@ -12,8 +12,8 @@ metafactory-discord/
   cli/
     discord.ts           # the CLI entrypoint (→ ~/bin/discord)
     lib/
-      config.ts               # ~/.config/cortex/cli.yaml config (cortex-first, grove-fallback)
-      config-path.ts          # vendored path resolver (the one helper cortex shared)
+      config.ts               # ~/.config/metafactory/cortex/cli.yaml config (canonical-first, legacy fallbacks)
+      config-path.ts          # vendored path resolver (pinned + drift-tested; the one helper cortex shared)
       confidentiality-gate.ts # public-post scan gate before postMessage* (compass#91)
       discord.ts              # Discord REST API ops (post/read/threads/roles) — raw fetch, no discord.js
       server-context.ts       # multi-guild server-profile resolution
@@ -36,7 +36,7 @@ Repo-first (the bundle is **not** on the metafactory registry yet):
 arc install <git-url of metafactory-discord>
 ```
 
-This installs the `~/bin/discord` shim and the `Discord` skill at `~/.claude/skills/Discord`. Config lives at `~/.config/cortex/cli.yaml` (cortex-first, with a `~/.config/grove/cli.yaml` legacy fallback that migrates on first write). See [`cli.yaml.example`](cli.yaml.example) for the schema — real guild/channel IDs and the confidentiality-gate markers below belong only in your own config, never committed here.
+This installs the `~/bin/discord` shim and the `Discord` skill at `~/.claude/skills/Discord`. Config lives at `~/.config/metafactory/cortex/cli.yaml` (canonical-first, with `~/.config/cortex/cli.yaml` then `~/.config/grove/cli.yaml` legacy fallbacks that migrate canonical-side on first write). See [`cli.yaml.example`](cli.yaml.example) for the schema — real guild/channel IDs and the confidentiality-gate markers below belong only in your own config, never committed here.
 
 ## Confidentiality gate
 

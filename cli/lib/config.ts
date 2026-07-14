@@ -1,10 +1,12 @@
 /**
- * Discord CLI configuration — stored at ~/.config/cortex/cli.yaml.
+ * Discord CLI configuration — stored at ~/.config/metafactory/cortex/cli.yaml.
  *
- * GV-1 (cortex#1076): the canonical location is `~/.config/cortex/cli.yaml`.
- * Reads are cortex-first with a `~/.config/grove/cli.yaml` fallback during the
- * transition window; the first write migrates the legacy grove copy to cortex
- * (mode-preserving) and persists cortex-side thereafter.
+ * XDG wave-4 (cortex#1869): the canonical location is
+ * `~/.config/metafactory/cortex/cli.yaml`. Reads are canonical-first with
+ * `~/.config/cortex/cli.yaml` then `~/.config/grove/cli.yaml` as legacy
+ * read-fallbacks during the transition window; the first write migrates any
+ * legacy copy to canonical (mode-preserving) and persists canonical-side
+ * thereafter. See `config-path.ts` for the full precedence and pin marker.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -12,7 +14,8 @@ import { dirname } from "path";
 import YAML from "yaml";
 // config-path is vendored INTO this bundle (ADR-0017): the only shared helper
 // the Discord CLI depended on in cortex (`common/config/config-path`) is a small
-// `~/.config/cortex` path resolver, copied here so the bundle is standalone.
+// config-path resolver, copied here so the bundle is standalone. It carries a
+// pinned-version marker + drift test so it cannot silently fork from cortex.
 import { cortexConfigPath, migrateGroveConfigFile, resolveConfigFilePath } from "./config-path";
 
 export interface ChannelConfig {
@@ -43,7 +46,7 @@ export interface ServerProfile {
    * marks this profile's guild as INTERNAL (never scanned before posting).
    * FAIL-CLOSED default when absent/false — the guild is treated as PUBLIC
    * and scanned. This marker is operator-private: it belongs only in the
-   * principal's own `~/.config/cortex/cli.yaml`, never in a shipped/example
+   * principal's own `~/.config/metafactory/cortex/cli.yaml`, never in a shipped/example
    * config. See `cli/lib/confidentiality-gate.ts`.
    */
   internal?: boolean;
@@ -80,7 +83,7 @@ export interface DiscordCliConfig {
 const CONFIG_FILENAME = "cli.yaml";
 
 export function loadConfig(): DiscordCliConfig {
-  // cortex-first, grove-fallback (GV-1).
+  // canonical-first (metafactory/cortex), then legacy cortex/grove fallbacks.
   const path = resolveConfigFilePath(CONFIG_FILENAME);
   if (!existsSync(path)) return {};
   const text = readFileSync(path, "utf-8");
@@ -88,8 +91,9 @@ export function loadConfig(): DiscordCliConfig {
 }
 
 export function saveConfig(config: DiscordCliConfig): void {
-  // On first write, migrate any legacy grove copy to cortex (mode-preserving),
-  // then always persist to the canonical cortex path.
+  // On first write, migrate any legacy copy (flat ~/.config/cortex, else grove)
+  // to the canonical metafactory/cortex tree (mode-preserving), then always
+  // persist to the canonical path.
   migrateGroveConfigFile(CONFIG_FILENAME);
   const path = cortexConfigPath(CONFIG_FILENAME);
   mkdirSync(dirname(path), { recursive: true });
@@ -97,8 +101,8 @@ export function saveConfig(config: DiscordCliConfig): void {
 }
 
 export function getConfigPath(): string {
-  // The path a reader would resolve right now (cortex if present/default,
-  // grove only as the legacy fallback).
+  // The path a reader would resolve right now (canonical if present/default,
+  // legacy trees only as the fallback net).
   return resolveConfigFilePath(CONFIG_FILENAME);
 }
 
