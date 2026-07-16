@@ -1,0 +1,16 @@
+# Reusable arc/v1 manifest validation gate (skill-estate migration WS2, arc#316).
+# Calls the shared CI floor in the-metafactory/metafactory-actions, pinned by
+# commit SHA (never a tag/branch) so a moved ref cannot swap the gate. It installs
+# a pinned arc and runs `arc validate` over this repo's arc-manifest.yaml: a clean
+# arc/v1 manifest passes; any strict-contract violation fails the check, one line
+# per violation. Read-only — it never mutates the tree.
+name: validate-manifest
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    uses: the-metafactory/metafactory-actions/.github/workflows/validate-manifest.yml@94f76b1e191c430289ec2516746ef23623e9b7c4
