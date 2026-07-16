@@ -6,14 +6,19 @@
 # registry name `metafactory-discord` is reserved for a later publication step.
 schema: arc/v1
 name: discord
-namespace: metafactory
+namespace: "@metafactory"
 version: 0.2.0
 type: skill
 tier: custom
+description: >
+  Discord CLI + skills bundle for the metafactory ecosystem — post messages,
+  read channels, and manage threads/roles from the terminal, plus the
+  trusted-executor fleet-admission procedure. Surface tooling extracted from
+  cortex per ADR-0017 (the live Discord adapter stays in cortex).
 
-authors:
-  - name: Andreas
-    github: aastroem
+author:
+  name: Andreas Aastroem
+  github: mellanon
 
 license: MIT
 
@@ -68,7 +73,7 @@ capabilities:
     write:
       - ~/.config/metafactory/cortex/cli.yaml
   network:
-    - domain: discord.com
+    - host: discord.com
       reason: Discord REST API (https://discord.com/api/v10) — post/read messages, threads, roles
   bash:
     allowed: false
