@@ -1,0 +1,88 @@
+# Example guild layout — the declarative structure a guild should have (issue #18).
+#
+# `discord guild diff  --layout THIS_FILE --server <sandbox>`  prints the plan, exits 1 on drift.
+# `discord guild apply --layout THIS_FILE --server <sandbox>`  prints the plan, mutates NOTHING (dry run).
+# `discord guild apply --layout THIS_FILE --server <sandbox> --execute`  builds it.
+#
+# Matching is BY NAME (channels by name+parent). RENAMING here reads as delete+create.
+# Nothing live is ever deleted unless it is BOTH listed under `prune:` below AND you
+# pass `--prune`. This file demonstrates every feature: gated "rings" (a role-gated
+# category is @everyone-denied + role-allowed), a forum with tags, and category- and
+# channel-level overwrite patterns.
+
+# ── roles ── the rings. Higher rings see more categories (via overwrites below).
+roles:
+  Newcomer:
+    color: 0x95A5A6
+    permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY]
+  Member:
+    color: 0x3B82F6
+    hoist: true
+    permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY, ADD_REACTIONS, EMBED_LINKS]
+  Builder:
+    color: 0xE67E22
+    hoist: true
+    mentionable: true
+    permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY, ADD_REACTIONS, EMBED_LINKS, MANAGE_THREADS]
+
+# ── categories ── each ring is a category gated by a permission overwrite.
+categories:
+  Lobby:
+    # Open to everyone — the ground floor.
+    overwrites:
+      "@everyone":
+        allow: [VIEW_CHANNEL]
+  Workshop:
+    # Members only: deny @everyone, allow Member.
+    overwrites:
+      "@everyone":
+        deny: [VIEW_CHANNEL]
+      Member:
+        allow: [VIEW_CHANNEL]
+  Inner Ring:
+    # Builders only: deny @everyone, allow Builder.
+    overwrites:
+      "@everyone":
+        deny: [VIEW_CHANNEL]
+      Builder:
+        allow: [VIEW_CHANNEL]
+
+# ── channels ── name+parent is the identity. Overwrites/tags are separate phases.
+channels:
+  welcome:
+    type: text
+    parent: Lobby
+    topic: "Start here. Read the rules, then say hi."
+    slowmode: 10
+  workshop-floor:
+    type: text
+    parent: Workshop
+    topic: "Members' working channel."
+  build-logs:
+    type: forum
+    parent: Workshop
+    topic: "One thread per build. Tag it."
+    forum_tags:
+      - name: wip
+      - name: shipped
+        moderated: true
+      - name: help-wanted
+    overwrites:
+      Builder:
+        allow: [VIEW_CHANNEL, MANAGE_THREADS]
+  strategy:
+    type: text
+    parent: Inner Ring
+    topic: "Builders only — direction and planning."
+
+# ── guild settings ── pointers resolve to channels created above (same run).
+guild:
+  verification: low
+  rules_channel: welcome
+
+# ── prune ── explicit deletion opt-in. Even listed here, a resource is deleted
+# ONLY when you also pass --prune. Absent both, unmanaged resources are just reported.
+# prune:
+#   channels: [old-channel-name]
+#   categories: []
+#   roles: []

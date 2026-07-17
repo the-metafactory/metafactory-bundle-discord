@@ -21,6 +21,7 @@ import { readFileSync, writeFileSync } from "fs";
 import type { Command } from "commander";
 import { loadConfig } from "../lib/config";
 import { snapshotGuild, renderSnapshot, unavailableSections } from "../lib/guild/snapshot";
+import { parseLayout, diffLayout, applyPlan, renderPlan, isEmptyPlan, LayoutError } from "../lib/guild/layout";
 import type { ServerContextOptions } from "../lib/server-context";
 import { resolveContextOrExit, resolveChannelId } from "./shared";
 import {
@@ -110,6 +111,36 @@ interface OnboardingSetOptions extends ServerContextOptions {
 
 interface SnapshotOptions extends ServerContextOptions {
   output?: string;
+}
+
+interface DiffOptions extends ServerContextOptions {
+  layout: string;
+}
+
+interface ApplyOptions extends ServerContextOptions {
+  layout: string;
+  execute?: boolean;
+  prune?: boolean;
+}
+
+/** Read + parse a layout file, exiting with a clear message on any failure. */
+function loadLayoutOrExit(file: string): ReturnType<typeof parseLayout> {
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (err) {
+    console.error(`--layout: could not read "${file}": ${(err as Error).message}`);
+    process.exit(1);
+  }
+  try {
+    return parseLayout(text);
+  } catch (err) {
+    if (err instanceof LayoutError) {
+      console.error(`Layout error in ${file}: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
 }
 
 /** Shared `-g/-s` context flags applied to each leaf subcommand. */
@@ -394,6 +425,85 @@ export function registerGuild(program: Command): void {
     } else {
       process.stdout.write(document);
     }
+  });
+
+  // ── diff ──────────────────────────────────────────────────────────────────
+  withContextFlags(
+    guildCmd
+      .command("diff")
+      .description(
+        "Diff a declarative guild layout against the live guild (CI drift check).\n" +
+          "\n" +
+          "  Prints the ordered plan that would make the guild match the layout, then\n" +
+          "  exits 1 if the plan is non-empty (drift) or 0 if empty (in sync). Mutates\n" +
+          "  nothing. Matching is BY NAME (channels by name+parent); a rename reads as\n" +
+          "  delete+create. Live resources absent from the layout are reported\n" +
+          "  'unmanaged' and are never deleted."
+      )
+      .requiredOption("--layout <file>", "Path to the guild-layout YAML file")
+  ).action(async (opts: DiffOptions) => {
+    const { botToken, guildId } = resolveGuildContext(opts);
+    const layout = loadLayoutOrExit(opts.layout);
+    const snapshot = await snapshotGuild(botToken, guildId);
+    const plan = diffLayout(layout, snapshot);
+
+    for (const line of renderPlan(plan)) console.log(line);
+    // CI-friendly: non-empty plan (drift) → exit 1, in-sync → exit 0.
+    process.exit(isEmptyPlan(plan) ? 0 : 1);
+  });
+
+  // ── apply ─────────────────────────────────────────────────────────────────
+  withContextFlags(
+    guildCmd
+      .command("apply")
+      .description(
+        "Apply a declarative guild layout to the live guild.\n" +
+          "\n" +
+          "  DRY RUN IS THE DEFAULT: without --execute this prints the plan and mutates\n" +
+          "  NOTHING. Add --execute to run the plan (roles -> categories -> channels ->\n" +
+          "  overwrites -> forum tags -> guild settings), resolving created ids as it\n" +
+          "  goes. It stops on the first failure and reports 'completed N of M'; a\n" +
+          "  re-run re-diffs and resumes at the remainder (idempotent).\n" +
+          "\n" +
+          "  NEVER DESTRUCTIVE BY DEFAULT: live resources absent from the layout are\n" +
+          "  reported 'unmanaged', never deleted. Deletion requires BOTH a prune: block\n" +
+          "  in the layout naming the resource AND the --prune flag here.\n" +
+          "\n" +
+          "  Matching is BY NAME (channels by name+parent); a rename reads as delete+create."
+      )
+      .requiredOption("--layout <file>", "Path to the guild-layout YAML file")
+      .option("--execute", "Actually mutate the guild (without this flag: dry run)")
+      .option("--prune", "Delete resources listed under the layout's prune: block (destructive)")
+  ).action(async (opts: ApplyOptions) => {
+    const { botToken, guildId } = resolveGuildContext(opts);
+    const layout = loadLayoutOrExit(opts.layout);
+    const snapshot = await snapshotGuild(botToken, guildId);
+    const plan = diffLayout(layout, snapshot, { prune: opts.prune === true });
+
+    for (const line of renderPlan(plan)) console.log(line);
+
+    if (!opts.execute) {
+      console.log("");
+      console.log("Dry run (no --execute): nothing was changed. Re-run with --execute to apply.");
+      return;
+    }
+
+    if (isEmptyPlan(plan)) return; // already in sync — nothing to execute.
+
+    console.log("");
+    console.log("Executing...");
+    const result = await applyPlan(botToken, guildId, plan, snapshot, { execute: true });
+    if (result.ok) {
+      console.log(`Applied ${result.completed} of ${result.total} action(s).`);
+      return;
+    }
+    console.error(
+      `Completed ${result.completed} of ${result.total} action(s), then failed on:\n` +
+        `  ${result.failure?.action.description}\n` +
+        `  ${result.failure?.error}\n` +
+        `Re-run 'guild apply --layout ${opts.layout} --execute' to resume at the remainder.`
+    );
+    process.exit(1);
   });
 }
 
