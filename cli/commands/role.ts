@@ -9,7 +9,7 @@
  *
  * Target use cases:
  *   discord role add --server community --role community-fleet --member <discord-user-id>
- *   discord role create --name Adventurer --color '#3B82F6' --hoist --server community
+ *   discord role create --name Moderator --color '#3B82F6' --hoist --server community
  *   discord role list --server community
  *
  * Prerequisites (the bot must meet these; if not, the 403 branch fires):

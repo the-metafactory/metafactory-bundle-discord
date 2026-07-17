@@ -66,8 +66,8 @@ channel    Create, edit, delete, and list guild channels (incl. forum tags)
 threads    List active threads in the Discord server
 thread     Create and manage guild threads (public/private, members, archive)
 role       Manage guild roles: assign/remove on members, and create/edit/delete/reorder/list
-perms      Manage channel permission overwrites (the ring-gate mechanism)
-event      Manage guild scheduled events (the muster roll: RSVP-able musters and team efforts)
+perms      Manage channel permission overwrites
+event      Manage guild scheduled events (create, edit, delete, RSVP list)
 webhook    Manage guild webhooks (create/list/delete) and post with per-message identity
 guild      Guild-level settings: show, edit, community-enable, welcome screen, onboarding
 config     Manage discord CLI configuration
@@ -91,7 +91,7 @@ discord guild apply --layout guild-layout.yaml --server sandbox  # DRY RUN — c
 discord guild apply --layout guild-layout.yaml --server sandbox --execute   # build it
 ```
 
-A worked layout demonstrating ring-gated categories, a forum with tags, and
+A worked layout demonstrating role-gated categories, a forum with tags, and
 overwrite patterns ships at
 [`examples/guild-layout.example.yaml`](examples/guild-layout.example.yaml). A short excerpt:
 
@@ -102,7 +102,7 @@ roles:
     hoist: true
     permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY]
 categories:
-  Workshop:                       # members-only ring: deny @everyone, allow Member
+  Workshop:                       # members-only: deny @everyone, allow Member
     overwrites:
       "@everyone": { deny: [VIEW_CHANNEL] }
       Member:      { allow: [VIEW_CHANNEL] }

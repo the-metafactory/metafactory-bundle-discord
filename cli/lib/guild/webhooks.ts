@@ -1,6 +1,6 @@
 /**
  * Guild webhook management — create/list/delete + execute-with-identity
- * (guildhall idea 0021: "agents wear their face wherever they speak").
+ * (a per-message username/avatar override when posting through a webhook).
  *
  * The bot API surface (create/list/delete) needs the MANAGE_WEBHOOKS permission
  * and goes through the shared `discordRequest` transport (auth header, 429 retry,

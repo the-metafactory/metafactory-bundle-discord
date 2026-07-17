@@ -149,7 +149,7 @@ function matchingSnapshot(): GuildSnapshot {
     },
     {
       id: INNER,
-      name: "Inner Ring",
+      name: "Staff",
       position: 2,
       overwrites: [ow("@everyone", EVERYONE, [], ["VIEW_CHANNEL"]), ow("Builder", BUILDER, ["VIEW_CHANNEL"], [])],
     },
@@ -195,7 +195,7 @@ function matchingSnapshot(): GuildSnapshot {
       id: STRATEGY,
       name: "strategy",
       type: "text",
-      parent: "Inner Ring",
+      parent: "Staff",
       topic: "Builders only — direction and planning.",
       position: 3,
       slowmode: 0,
@@ -224,7 +224,7 @@ describe("parseLayout", () => {
   test("parses the shipped example without error", () => {
     const layout = loadExample();
     expect(layout.roles.map((r) => r.name)).toEqual(["Newcomer", "Member", "Builder"]);
-    expect(layout.categories.map((c) => c.name)).toEqual(["Lobby", "Workshop", "Inner Ring"]);
+    expect(layout.categories.map((c) => c.name)).toEqual(["Lobby", "Workshop", "Staff"]);
     expect(layout.channels.map((c) => c.name)).toEqual(["welcome", "workshop-floor", "build-logs", "strategy"]);
     const forum = layout.channels.find((c) => c.name === "build-logs")!;
     expect(forum.forum_tags?.map((t) => t.name)).toEqual(["wip", "shipped", "help-wanted"]);

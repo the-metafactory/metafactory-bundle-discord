@@ -1,10 +1,10 @@
 /**
- * `discord event create|edit|delete|list|rsvps` — guild scheduled events, the
- * native "muster roll" RSVP mechanism (issue #14).
+ * `discord event create|edit|delete|list|rsvps` — guild scheduled events,
+ * Discord's native RSVP mechanism (issue #14).
  *
- *   discord event create --name "The Muster" --start <ISO> --end <ISO> --location "guild voice"
- *   discord event create --name "Standup"    --start <ISO> --voice general
- *   discord event edit   --event <id> --name "The Muster I"
+ *   discord event create --name "Team meetup" --start <ISO> --end <ISO> --location "Main hall"
+ *   discord event create --name "Standup"     --start <ISO> --voice general
+ *   discord event edit   --event <id> --name "Team sync"
  *   discord event delete --event <id> --yes
  *   discord event list
  *   discord event rsvps  --event <id>
@@ -15,7 +15,7 @@
  * network call.
  *
  * Recurring events are out of scope (Discord `recurrence_rule` is newer surface;
- * defer until a Muster needs it).
+ * defer until a scheduled event needs it).
  */
 
 import type { Command } from "commander";
@@ -96,7 +96,7 @@ function requireContext(botToken?: string, guildId?: string): asserts botToken i
 export function registerEvent(program: Command): void {
   const eventCmd = program
     .command("event")
-    .description("Manage guild scheduled events (the muster roll: RSVP-able musters and team efforts)");
+    .description("Manage guild scheduled events (create, edit, delete, RSVP list)");
 
   // ── create ────────────────────────────────────────────────────────────────
   eventCmd
@@ -107,7 +107,7 @@ export function registerEvent(program: Command): void {
         "  --voice <channel>  → a VOICE event in that channel.\n" +
         "  --location <text>  → an EXTERNAL event (then --end is required).\n" +
         "  Recurring events are not supported yet (Discord recurrence_rule); defer\n" +
-        "  until a Muster needs it."
+        "  until a scheduled event needs it."
     )
     .requiredOption("-n, --name <name>", "Event name")
     .requiredOption("--start <ISO8601>", "Start time, ISO8601 (e.g. 2026-08-01T19:00:00+12:00)")

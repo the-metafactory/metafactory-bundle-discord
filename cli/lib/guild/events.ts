@@ -1,8 +1,8 @@
 /**
- * Guild scheduled events — the "muster roll" CRUD + RSVP reads (issue #14).
+ * Guild scheduled events — CRUD + RSVP reads (issue #14).
  *
- * Musters and team efforts use Discord Scheduled Events as the native RSVP
- * mechanism. This module wraps the five REST operations behind the shared
+ * This module uses Discord Scheduled Events as the native RSVP mechanism and
+ * wraps the five REST operations behind the shared
  * transport (`discordRequest`, cli/lib/http.ts):
  *
  *   createEvent  → POST   /guilds/{guild}/scheduled-events
@@ -21,7 +21,7 @@
  * HTTP status and the response body, which never echoes the token.
  *
  * Out of scope (issue #14): recurring events (Discord `recurrence_rule` — defer
- * until a Muster needs it), cover images, and stage instances themselves.
+ * until a scheduled event needs it), cover images, and stage instances themselves.
  *
  * API: https://discord.com/developers/docs/resources/guild-scheduled-event
  */

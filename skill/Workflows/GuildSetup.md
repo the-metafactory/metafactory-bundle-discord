@@ -16,7 +16,7 @@ first. The two that matter most:
 
 `discord guild --help`, run locally (no bot token needed) against this bundle:
 
-<!-- TODO: replace with live sandbox output once the sandbox guild exists (epic #20 holds) -->
+<!-- Illustrative output; live values require a configured test guild. -->
 ```text
 Usage: discord guild [options] [command]
 
@@ -63,14 +63,14 @@ Commands:
    beats a crash). Running it twice yields byte-identical output apart from the
    header timestamp.
 
-   <!-- TODO: replace with live sandbox output once the sandbox guild exists (epic #20 holds) -->
+   <!-- Illustrative output; live values require a configured test guild. -->
    ```text
    Wrote guild snapshot to guild.snapshot.yaml
    ```
 
 2. **Author the layout** — write (or copy and edit) a declarative layout that
    describes the structure the guild *should* have. Start from the worked example
-   shipped in the bundle, which demonstrates every feature (ring-gated categories,
+   shipped in the bundle, which demonstrates every feature (role-gated categories,
    a forum with tags, category- and channel-level overwrites):
    ```bash
    cp ../../examples/guild-layout.example.yaml guild-layout.yaml
@@ -89,7 +89,7 @@ Commands:
    Live resources absent from the layout are reported `unmanaged` and are never
    part of a delete.
 
-   <!-- TODO: replace with live sandbox output once the sandbox guild exists (epic #20 holds) -->
+   <!-- Illustrative output; live values require a configured test guild. -->
    ```text
    + role "Builder"
    + category "Workshop"
@@ -107,7 +107,7 @@ Commands:
    The plan runs in dependency order: roles → categories → channels → overwrites →
    forum tags → guild settings, resolving created ids as it goes.
 
-   <!-- TODO: replace with live sandbox output once the sandbox guild exists (epic #20 holds) -->
+   <!-- Illustrative output; live values require a configured test guild. -->
    ```text
    + role "Builder"
    + category "Workshop"
@@ -125,7 +125,7 @@ Commands:
    re-run re-diffs and resumes at the remainder, so `apply --execute` is
    idempotent — running it twice on a matching guild is a no-op.
 
-   <!-- TODO: replace with live sandbox output once the sandbox guild exists (epic #20 holds) -->
+   <!-- Illustrative output; live values require a configured test guild. -->
    ```text
    + role "Builder"
    + category "Workshop"

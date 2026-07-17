@@ -1,7 +1,7 @@
 /**
  * `discord perms set|clear|show|sync` — manage channel permission overwrites,
- * the mechanism the ring model runs on (each category gated by one role;
- * "promotion is new rooms appearing").
+ * the mechanism for gating a channel or category behind a role (deny
+ * `@everyone` VIEW_CHANNEL, allow it for one role).
  *
  * Targets are a role (`--role`, overwrite type 0) or a member (`--member`,
  * overwrite type 1). `--role everyone` (or `@everyone`) resolves to the guild's
@@ -140,7 +140,7 @@ function contextOrExit(opts: PermsOptions): {
 export function registerPerms(program: Command): void {
   const permsCmd = program
     .command("perms")
-    .description("Manage channel permission overwrites (the ring-gate mechanism)");
+    .description("Manage channel permission overwrites");
 
   permsCmd
     .command("set")

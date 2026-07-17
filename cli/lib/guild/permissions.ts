@@ -1,8 +1,8 @@
 /**
- * Channel permission overwrites — the mechanism the ring model is built on.
+ * Channel permission overwrites — the mechanism for gating channels behind roles.
  *
- * The ring model gates each category behind one role via permission overwrites;
- * "promotion is new rooms appearing" is entirely an overwrite story. This module
+ * Gating a category behind a role is a permission-overwrite story: deny
+ * `@everyone` VIEW_CHANNEL on the category, allow it for the role. This module
  * owns the named-permission bit map, the overwrite REST calls (set / delete /
  * read), and the client-side "sync from category" helper.
  *
