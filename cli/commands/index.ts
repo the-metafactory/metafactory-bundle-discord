@@ -12,8 +12,12 @@ import type { Command } from "commander";
 import { registerPost } from "./post";
 import { registerRead } from "./read";
 import { registerChannels } from "./channels";
+import { registerChannel } from "./channel";
 import { registerThreads } from "./threads";
+import { registerThread } from "./thread";
 import { registerRole } from "./role";
+import { registerPerms } from "./perms";
+import { registerEvent } from "./event";
 import { registerWebhook } from "./webhook";
 import { registerConfig } from "./config";
 
@@ -21,8 +25,12 @@ export function registerAll(program: Command): void {
   registerPost(program);
   registerRead(program);
   registerChannels(program);
+  registerChannel(program);
   registerThreads(program);
+  registerThread(program);
   registerRole(program);
+  registerPerms(program);
+  registerEvent(program);
   registerWebhook(program);
   registerConfig(program);
 }
