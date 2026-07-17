@@ -17,6 +17,7 @@ import { registerThreads } from "./threads";
 import { registerThread } from "./thread";
 import { registerRole } from "./role";
 import { registerPerms } from "./perms";
+import { registerEvent } from "./event";
 import { registerConfig } from "./config";
 
 export function registerAll(program: Command): void {
@@ -28,5 +29,6 @@ export function registerAll(program: Command): void {
   registerThread(program);
   registerRole(program);
   registerPerms(program);
+  registerEvent(program);
   registerConfig(program);
 }
