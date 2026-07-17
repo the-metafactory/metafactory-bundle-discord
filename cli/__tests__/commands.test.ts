@@ -37,9 +37,9 @@ describe("registerAll", () => {
     expect(names(webhook)).toEqual(["create", "list", "delete", "exec"]);
   });
 
-  test("guild has show, edit, community-enable, welcome, onboarding subcommands", () => {
+  test("guild has show, edit, community-enable, welcome, onboarding, snapshot subcommands", () => {
     const guild = build().commands.find((c) => c.name() === "guild")!;
-    expect(names(guild)).toEqual(["show", "edit", "community-enable", "welcome", "onboarding"]);
+    expect(names(guild)).toEqual(["show", "edit", "community-enable", "welcome", "onboarding", "snapshot"]);
     const welcome = guild.commands.find((c) => c.name() === "welcome")!;
     expect(names(welcome)).toEqual(["show", "set"]);
     const onboarding = guild.commands.find((c) => c.name() === "onboarding")!;
