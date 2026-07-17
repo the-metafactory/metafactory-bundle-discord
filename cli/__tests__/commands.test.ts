@@ -24,12 +24,22 @@ function names(cmd: Command): string[] {
 
 describe("registerAll", () => {
   test("registers the same top-level commands, in order", () => {
-    expect(names(build())).toEqual(["post", "read", "channels", "threads", "role", "config"]);
+    // `guild` (issue #16) is additive, slotted after `role` per registration order.
+    expect(names(build())).toEqual(["post", "read", "channels", "threads", "role", "guild", "config"]);
   });
 
   test("role has add + remove subcommands", () => {
     const role = build().commands.find((c) => c.name() === "role")!;
     expect(names(role)).toEqual(["add", "remove"]);
+  });
+
+  test("guild has show, edit, community-enable, welcome, onboarding subcommands", () => {
+    const guild = build().commands.find((c) => c.name() === "guild")!;
+    expect(names(guild)).toEqual(["show", "edit", "community-enable", "welcome", "onboarding"]);
+    const welcome = guild.commands.find((c) => c.name() === "welcome")!;
+    expect(names(welcome)).toEqual(["show", "set"]);
+    const onboarding = guild.commands.find((c) => c.name() === "onboarding")!;
+    expect(names(onboarding)).toEqual(["show", "set"]);
   });
 
   test("config has set, set-server, get, show, path subcommands", () => {
