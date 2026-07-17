@@ -18,7 +18,8 @@ import {
   type AttachmentInput,
 } from "../lib/discord";
 import { gatePublicPost } from "../lib/confidentiality-gate";
-import { resolveContextOrExit, resolveChannelId } from "./shared";
+import { parseDiscordUrl } from "../lib/discord-url";
+import { resolveContextWithUrlsOrExit, resolveChannelId } from "./shared";
 
 interface PostOptions extends ServerContextOptions {
   channel?: string;
@@ -32,15 +33,15 @@ export function registerPost(program: Command): void {
     .command("post")
     .description("Post a message to a Discord channel")
     .argument("[message...]", "Message text (optional when --file is given)")
-    .option("-c, --channel <name>", "Channel name (default: defaultChannel from config)")
-    .option("-t, --thread <name-or-id>", "Thread name or ID to post into")
+    .option("-c, --channel <name>", "Channel name, id, or a pasted discord.com/channels URL (default: defaultChannel from config)")
+    .option("-t, --thread <name-or-id>", "Thread name, id, or a pasted discord.com/channels URL to post into")
     .option("-T, --create-thread <name>", "Create a thread from the posted message and print its ID")
     .option("-f, --file <path>", "Attach a file (repeatable)", (v: string, acc: string[]) => [...acc, v], [])
-    .option("-g, --guild <id>", "Guild ID to resolve channel/thread names against (overrides config)")
+    .option("-g, --guild <id>", "Guild ID (or a pasted discord.com/channels URL) to resolve names against (overrides config)")
     .option("-s, --server <name>", "Named server profile from config (layers guildId + overrides)")
     .action(async (messageParts: string[], opts: PostOptions) => {
       const config = loadConfig();
-      const ctx = resolveContextOrExit(config, opts);
+      const ctx = resolveContextWithUrlsOrExit(config, opts, [opts.channel, opts.thread]);
       const message = messageParts.join(" ");
       const filePaths = opts.file ?? [];
 
@@ -77,15 +78,21 @@ export function registerPost(program: Command): void {
         process.exit(1);
       }
 
-      // Resolve thread by name if provided and not a numeric ID
+      // Resolve the thread target. A pasted URL carries the thread/channel
+      // snowflake directly; otherwise a non-numeric value is a name to look up.
       let threadId = opts.thread;
-      if (threadId && !/^\d+$/.test(threadId)) {
-        const resolved = await resolveThreadByName(ctx.botToken, ctx.guildId, threadId);
-        if (!resolved) {
-          console.error(`Thread "${threadId}" not found. Run: discord threads`);
-          process.exit(1);
+      if (threadId) {
+        const url = parseDiscordUrl(threadId);
+        if (url) {
+          threadId = url.channelId;
+        } else if (!/^\d+$/.test(threadId)) {
+          const resolved = await resolveThreadByName(ctx.botToken, ctx.guildId, threadId);
+          if (!resolved) {
+            console.error(`Thread "${threadId}" not found. Run: discord threads`);
+            process.exit(1);
+          }
+          threadId = resolved.id;
         }
-        threadId = resolved.id;
       }
 
       const channelName = opts.channel ?? ctx.defaultChannel;
