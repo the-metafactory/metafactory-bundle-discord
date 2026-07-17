@@ -54,6 +54,72 @@ discord read                                          # Read last 10 messages
 discord --help                                        # Full command list
 ```
 
+### Commands
+
+Top-level command groups (from `discord --help`):
+
+```
+post       Post a message to a Discord channel
+read       Read recent messages from a channel or thread
+channels   List channels in the Discord server
+channel    Create, edit, delete, and list guild channels (incl. forum tags)
+threads    List active threads in the Discord server
+thread     Create and manage guild threads (public/private, members, archive)
+role       Manage guild roles: assign/remove on members, and create/edit/delete/reorder/list
+perms      Manage channel permission overwrites (the ring-gate mechanism)
+event      Manage guild scheduled events (the muster roll: RSVP-able musters and team efforts)
+webhook    Manage guild webhooks (create/list/delete) and post with per-message identity
+guild      Guild-level settings: show, edit, community-enable, welcome screen, onboarding
+config     Manage discord CLI configuration
+help       Display help for command
+```
+
+Each group has its own `--help` (e.g. `discord guild --help`). The full
+guild-management surface, its worked examples, and its safety defaults live in
+[`skill/SKILL.md`](skill/SKILL.md); the end-to-end guild-authoring walkthrough is
+[`skill/Workflows/GuildSetup.md`](skill/Workflows/GuildSetup.md).
+
+### Guild layout (declarative snapshot / diff / apply)
+
+Beyond one-off commands, a guild's whole structure can be authored from a single
+YAML layout and kept in sync with it:
+
+```bash
+discord guild snapshot --server sandbox -o guild.snapshot.yaml   # read live guild → YAML
+discord guild diff  --layout guild-layout.yaml --server sandbox  # plan; exit 1 on drift
+discord guild apply --layout guild-layout.yaml --server sandbox  # DRY RUN — changes nothing
+discord guild apply --layout guild-layout.yaml --server sandbox --execute   # build it
+```
+
+A worked layout demonstrating ring-gated categories, a forum with tags, and
+overwrite patterns ships at
+[`examples/guild-layout.example.yaml`](examples/guild-layout.example.yaml). A short excerpt:
+
+```yaml
+roles:
+  Member:
+    color: 0x3B82F6
+    hoist: true
+    permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY]
+categories:
+  Workshop:                       # members-only ring: deny @everyone, allow Member
+    overwrites:
+      "@everyone": { deny: [VIEW_CHANNEL] }
+      Member:      { allow: [VIEW_CHANNEL] }
+channels:
+  workshop-floor:
+    type: text
+    parent: Workshop
+    topic: "Members' working channel."
+```
+
+**Safety defaults** (shipped, not conventions):
+
+- `guild apply` is a **dry run** without `--execute` — it prints the plan and changes nothing.
+- Deletion requires **both** a `prune:` block in the layout **and** the `--prune` flag; unmanaged resources are never deleted.
+- `role`/`channel`/`event`/`webhook delete` refuse to run without `-y/--yes`.
+- Webhook URLs are printed once and never stored; webhook/bot tokens never appear in `list` or `snapshot` output.
+
 ## Develop
 
 ```bash

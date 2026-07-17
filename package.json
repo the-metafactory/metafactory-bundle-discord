@@ -1,6 +1,6 @@
 {
   "name": "metafactory-discord",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Discord CLI + skills bundle for the metafactory ecosystem (arc-installable; ADR-0017)",
   "type": "module",
   "bin": {
