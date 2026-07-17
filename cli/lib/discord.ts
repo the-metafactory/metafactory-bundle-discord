@@ -28,6 +28,20 @@ export interface DiscordChannel {
   parentId?: string;
 }
 
+/**
+ * Full channel projection returned by `listAllChannels` — every guild channel
+ * regardless of type, carrying the extra fields the guild-config slices need
+ * (`position`, `topic`) on top of the narrow `DiscordChannel` shape.
+ */
+export interface DiscordChannelFull {
+  id: string;
+  name: string;
+  type: number;
+  parentId?: string;
+  position?: number;
+  topic?: string;
+}
+
 export interface DiscordThread {
   id: string;
   name: string;
@@ -63,6 +77,8 @@ interface DiscordApiChannel {
   name: string;
   type: number;
   parent_id?: string | null;
+  position?: number;
+  topic?: string | null;
 }
 
 interface DiscordApiThread {
@@ -263,6 +279,56 @@ export async function listChannels(
       parentId: c.parent_id ?? undefined,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Discord guild channel type numbers → short human labels (for `channels --all`). */
+const CHANNEL_TYPE_NAMES: Record<number, string> = {
+  0: "text",
+  2: "voice",
+  4: "category",
+  5: "announcement",
+  13: "stage",
+  15: "forum",
+};
+
+/**
+ * Map a Discord channel `type` number to a short label. Unknown types render as
+ * `other(<n>)` so a new Discord type is still visible rather than silently
+ * dropped (the bug `listChannels`' text/announcement filter had).
+ */
+export function channelTypeName(type: number): string {
+  return CHANNEL_TYPE_NAMES[type] ?? `other(${type})`;
+}
+
+/**
+ * List ALL channels in a guild via bot API — every type, not just text +
+ * announcement. Unlike `listChannels` (which the `channels` command's default
+ * still uses), this applies no type filter and carries `position` + `topic`.
+ * Sorted by Discord position, then name, for a stable display order.
+ */
+export async function listAllChannels(
+  botToken: string,
+  guildId: string
+): Promise<DiscordChannelFull[]> {
+  const res = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
+    headers: { Authorization: `Bot ${botToken}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to list channels: ${res.status} ${await res.text()}`);
+  }
+
+  const channels = (await res.json()) as DiscordApiChannel[];
+  return channels
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      parentId: c.parent_id ?? undefined,
+      position: c.position,
+      topic: c.topic ?? undefined,
+    }))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name));
 }
 
 /**
