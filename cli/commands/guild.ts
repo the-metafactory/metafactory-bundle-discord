@@ -17,9 +17,10 @@
  * same command group. Keep each block self-contained so those land additively.
  */
 
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import type { Command } from "commander";
 import { loadConfig } from "../lib/config";
+import { snapshotGuild, renderSnapshot, unavailableSections } from "../lib/guild/snapshot";
 import type { ServerContextOptions } from "../lib/server-context";
 import { resolveContextOrExit, resolveChannelId } from "./shared";
 import {
@@ -105,6 +106,10 @@ interface WelcomeSetOptions extends ServerContextOptions {
 
 interface OnboardingSetOptions extends ServerContextOptions {
   file: string;
+}
+
+interface SnapshotOptions extends ServerContextOptions {
+  output?: string;
 }
 
 /** Shared `-g/-s` context flags applied to each leaf subcommand. */
@@ -356,6 +361,38 @@ export function registerGuild(program: Command): void {
     } catch (err) {
       console.error((err as Error).message);
       process.exit(1);
+    }
+  });
+
+  // ── snapshot ────────────────────────────────────────────────────────────────
+  withContextFlags(
+    guildCmd
+      .command("snapshot")
+      .description(
+        "Read the entire live guild into one deterministic YAML document\n" +
+          "  (guild, roles, categories, channels + overwrites, events, webhooks,\n" +
+          "  welcome screen). Prints to stdout, or to -o <file>.\n" +
+          "\n" +
+          "  A section the bot lacks permission to read renders as unavailable(...)\n" +
+          "  with a stderr warning; exit stays 0 (a partial snapshot beats a crash).\n" +
+          "  Webhook tokens are never serialized. Running twice yields byte-identical\n" +
+          "  output apart from the timestamp on the header line."
+      )
+      .option("-o, --output <file>", "Write YAML to this file instead of stdout")
+  ).action(async (opts: SnapshotOptions) => {
+    const { botToken, guildId } = resolveGuildContext(opts);
+    const snapshot = await snapshotGuild(botToken, guildId);
+    const document = renderSnapshot(snapshot, guildId);
+
+    for (const { section, marker } of unavailableSections(snapshot)) {
+      console.error(`warning: guild ${section} ${marker}`);
+    }
+
+    if (opts.output) {
+      writeFileSync(opts.output, document);
+      console.error(`Wrote guild snapshot to ${opts.output}`);
+    } else {
+      process.stdout.write(document);
     }
   });
 }
