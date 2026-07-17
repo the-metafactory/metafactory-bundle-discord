@@ -538,7 +538,7 @@ export function isEmptyPlan(plan: Plan): boolean {
 
 /** The composite identity key for a channel: parent + name (name+parent match). */
 function channelKey(name: string, parent: string | null): string {
-  return `${parent ?? ""} ${name}`;
+  return `${parent ?? ""}\u0000${name}`;
 }
 
 /** Read a snapshot section as an array, treating an `unavailable(...)` marker as empty. */
