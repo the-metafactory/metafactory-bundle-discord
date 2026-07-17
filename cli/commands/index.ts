@@ -13,6 +13,7 @@ import { registerPost } from "./post";
 import { registerRead } from "./read";
 import { registerChannels } from "./channels";
 import { registerThreads } from "./threads";
+import { registerThread } from "./thread";
 import { registerRole } from "./role";
 import { registerConfig } from "./config";
 
@@ -21,6 +22,7 @@ export function registerAll(program: Command): void {
   registerRead(program);
   registerChannels(program);
   registerThreads(program);
+  registerThread(program);
   registerRole(program);
   registerConfig(program);
 }
