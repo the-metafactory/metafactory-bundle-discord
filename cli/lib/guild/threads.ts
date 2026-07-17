@@ -4,10 +4,9 @@
  *
  * This is the write-and-lifecycle half of thread support that the read-only
  * `listThreads` / `createThreadFromMessage` in `cli/lib/discord.ts` don't cover.
- * Quest spaces (guildhall idea 0026) are PRIVATE threads that archive (not
- * delete) at absorption; the escort flow opens a private thread per newcomer.
- * That flow needs: create without a starter message, add party members, archive
- * on absorption, and later list what was archived.
+ * A common pattern is a PRIVATE thread that archives (not deletes) when done:
+ * create without a starter message, add members, archive when finished, and
+ * later list what was archived.
  *
  * Transport: every call goes through the shared `discordRequest` (cli/lib/http),
  * which owns the bot Authorization header, 429 retry, and rate-limit pacing. The
@@ -19,7 +18,7 @@
  * Out of scope (issue #13): creating threads from an existing message (exists as
  * `createThreadFromMessage` / `post --create-thread`). Forum posts — a forum post
  * IS a thread with a mandatory starter message, so it goes through the
- * with-message path, not this one; defer until the quest-board engine needs it.
+ * with-message path, not this one; defer until a forum-post engine needs it.
  */
 
 import { discordRequest } from "../http";
@@ -175,8 +174,8 @@ export async function removeThreadMember(
  * Archive or unarchive a thread.
  * Discord: PATCH /channels/{threadId} with body `{ archived }`.
  *
- * Archiving is the guildhall "absorption" close for a quest space — the thread
- * is retained (searchable, listable via `listArchivedThreads`), not deleted.
+ * Archiving closes a thread while keeping it — the thread is retained
+ * (searchable, listable via `listArchivedThreads`), not deleted.
  */
 export async function setArchived(
   token: string,

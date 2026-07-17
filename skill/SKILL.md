@@ -57,7 +57,7 @@ the name inside the selected guild or fails loudly.
 ## Guild management
 
 Beyond post/read, the CLI manages a guild's whole structure: roles, channels,
-permission overwrites (the "ring gate"), threads, scheduled events, webhooks, and
+permission overwrites, threads, scheduled events, webhooks, and
 guild-level settings — plus a declarative **snapshot → diff → apply** loop for
 authoring a guild from a YAML layout. Run `discord guild --help` for the group
 list; the command map below is the full surface.
@@ -112,7 +112,7 @@ discord channel tags list -c build-logs
 discord channel delete -c old-channel -y                  # irreversible → needs -y
 ```
 
-**`perms`** — channel permission overwrites (the ring gate: deny `@everyone`, allow a role):
+**`perms`** — channel permission overwrites (deny `@everyone`, allow a role):
 
 ```bash
 discord perms set   -c strategy -r '@everyone' --deny VIEW_CHANNEL
@@ -136,10 +136,10 @@ discord thread unarchive -t <threadId>
 discord thread list -c workshop-floor --archived                 # archived only
 ```
 
-**`event`** — guild scheduled events (the muster roll — RSVP-able musters):
+**`event`** — guild scheduled events (RSVP-able events):
 
 ```bash
-discord event create -n "Sprint muster" --start 2026-08-01T19:00:00+12:00 --voice general
+discord event create -n "Team meetup" --start 2026-08-01T19:00:00+12:00 --voice general
 discord event create -n "Meetup" --start 2026-08-01T19:00:00+12:00 \
   --location "Wellington" --end 2026-08-01T21:00:00+12:00          # EXTERNAL → --end required
 discord event list                                                 # with RSVP counts

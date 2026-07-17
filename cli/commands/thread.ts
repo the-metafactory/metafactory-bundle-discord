@@ -6,9 +6,8 @@
  * stays on the existing `discord threads` command; the `list` subcommand here
  * adds PER-CHANNEL archived listing (public or private).
  *
- * Quest spaces (guildhall idea 0026) drive this: claiming a quest opens a
- * private thread, party members are added, and the thread archives (not deletes)
- * at absorption.
+ * Private threads drive the common case: open a private thread, add members,
+ * and archive (not delete) it when the work is done.
  */
 
 import type { Command } from "commander";

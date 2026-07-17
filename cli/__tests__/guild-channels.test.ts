@@ -77,9 +77,9 @@ describe("createChannel", () => {
 
   test("category → type 4", async () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      fakeResponse(201, { id: CHANNEL, name: "ring", type: CHANNEL_TYPE.category })
+      fakeResponse(201, { id: CHANNEL, name: "lounge", type: CHANNEL_TYPE.category })
     );
-    await createChannel(BOT_TOKEN, GUILD, { name: "ring", type: CHANNEL_TYPE.category });
+    await createChannel(BOT_TOKEN, GUILD, { name: "lounge", type: CHANNEL_TYPE.category });
     expect(firstRequestBody(fetchMock).type).toBe(4);
     fetchMock.mockRestore();
   });
@@ -97,7 +97,7 @@ describe("createChannel", () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
       fakeResponse(201, {
         id: CHANNEL,
-        name: "quest-board",
+        name: "task-board",
         type: CHANNEL_TYPE.forum,
         available_tags: [
           { id: "1", name: "type:main", moderated: false },
@@ -107,7 +107,7 @@ describe("createChannel", () => {
     );
 
     const ch = await createChannel(BOT_TOKEN, GUILD, {
-      name: "quest-board",
+      name: "task-board",
       type: CHANNEL_TYPE.forum,
       available_tags: [
         { name: "type:main", moderated: false },
@@ -301,7 +301,7 @@ describe("getChannel", () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
       fakeResponse(200, {
         id: CHANNEL,
-        name: "quest-board",
+        name: "task-board",
         type: 15,
         available_tags: [{ id: "1", name: "type:main", moderated: false }],
       })
@@ -318,7 +318,7 @@ describe("getChannel", () => {
 // ─── resolveChannelIdByName (command helper) ────────────────────────────────────
 
 const CHANNELS_UNIQUE = [
-  { id: PARENT, name: "Ring One", type: CHANNEL_TYPE.category, position: 0 },
+  { id: PARENT, name: "Zone One", type: CHANNEL_TYPE.category, position: 0 },
   { id: CHANNEL, name: "general", type: CHANNEL_TYPE.text, position: 1 },
 ];
 
@@ -353,7 +353,7 @@ describe("resolveChannelIdByName", () => {
     const id = await resolveChannelIdByName(
       BOT_TOKEN,
       GUILD,
-      "Ring One",
+      "Zone One",
       "Parent category",
       CHANNEL_TYPE.category
     );

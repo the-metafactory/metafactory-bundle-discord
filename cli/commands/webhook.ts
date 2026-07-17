@@ -1,6 +1,6 @@
 /**
  * `discord webhook create|list|delete|exec` — guild webhook management with
- * per-message identity (guildhall idea 0021). Create/list/delete drive the bot
+ * per-message identity (a per-message username/avatar override). Create/list/delete drive the bot
  * API (MANAGE_WEBHOOKS); `exec` posts through a webhook URL with an overridden
  * username/avatar and routes the content through the SAME confidentiality gate
  * as `discord post` (warn-only rollout).

@@ -1,5 +1,5 @@
 /**
- * Unit tests for guild scheduled events (issue #14 — the muster roll).
+ * Unit tests for guild scheduled events (issue #14).
  *
  * ALL network calls are mocked via Bun's `spyOn(globalThis, "fetch")` — no live
  * Discord API. Covered:
@@ -53,11 +53,11 @@ function bodyOf(fetchMock: ReturnType<typeof spyOn>): Record<string, unknown> {
 describe("createEvent — EXTERNAL", () => {
   test("builds the EXTERNAL payload: type 3, channel_id null, location, end, privacy 2", async () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      res(200, { id: EVENT, name: "The Muster", entity_type: 3, scheduled_start_time: FUTURE_START })
+      res(200, { id: EVENT, name: "Team meetup", entity_type: 3, scheduled_start_time: FUTURE_START })
     );
 
     const spec: EventSpec = {
-      name: "The Muster",
+      name: "Team meetup",
       scheduledStartTime: FUTURE_START,
       scheduledEndTime: FUTURE_END,
       entityType: EntityType.EXTERNAL,
@@ -88,7 +88,7 @@ describe("createEvent — EXTERNAL", () => {
     const fetchMock = spyOn(globalThis, "fetch");
 
     const result = await createEvent(BOT_TOKEN, GUILD, {
-      name: "The Muster",
+      name: "Team meetup",
       scheduledStartTime: FUTURE_START,
       entityType: EntityType.EXTERNAL,
       location: "guild voice",
@@ -105,7 +105,7 @@ describe("createEvent — EXTERNAL", () => {
     const fetchMock = spyOn(globalThis, "fetch");
 
     const result = await createEvent(BOT_TOKEN, GUILD, {
-      name: "The Muster",
+      name: "Team meetup",
       scheduledStartTime: FUTURE_START,
       scheduledEndTime: FUTURE_END,
       entityType: EntityType.EXTERNAL,
@@ -184,7 +184,7 @@ describe("createEvent — ISO8601 validation", () => {
     const fetchMock = spyOn(globalThis, "fetch");
 
     const result = await createEvent(BOT_TOKEN, GUILD, {
-      name: "Old Muster",
+      name: "Old meetup",
       scheduledStartTime: PAST_START,
       entityType: EntityType.VOICE,
       channelId: VOICE_CHANNEL,
@@ -244,16 +244,16 @@ describe("createEvent — ISO8601 validation", () => {
 describe("modifyEvent", () => {
   test("rename → PATCH with only { name }", async () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      res(200, { id: EVENT, name: "The Muster I", entity_type: 3, scheduled_start_time: FUTURE_START })
+      res(200, { id: EVENT, name: "Team sync", entity_type: 3, scheduled_start_time: FUTURE_START })
     );
 
-    const result = await modifyEvent(BOT_TOKEN, GUILD, EVENT, { name: "The Muster I" });
+    const result = await modifyEvent(BOT_TOKEN, GUILD, EVENT, { name: "Team sync" });
 
     expect(result.success).toBe(true);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`https://discord.com/api/v10/guilds/${GUILD}/scheduled-events/${EVENT}`);
     expect(init.method).toBe("PATCH");
-    expect(bodyOf(fetchMock)).toEqual({ name: "The Muster I" });
+    expect(bodyOf(fetchMock)).toEqual({ name: "Team sync" });
 
     fetchMock.mockRestore();
   });
@@ -288,7 +288,7 @@ describe("listEvents", () => {
   test("requests with_user_count=true and returns the events", async () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
       res(200, [
-        { id: EVENT, name: "The Muster", entity_type: 3, scheduled_start_time: FUTURE_START, user_count: 7 },
+        { id: EVENT, name: "Team meetup", entity_type: 3, scheduled_start_time: FUTURE_START, user_count: 7 },
       ])
     );
 
@@ -399,7 +399,7 @@ describe("403 mapping + token redaction", () => {
     );
 
     const result = await createEvent(BOT_TOKEN, GUILD, {
-      name: "The Muster",
+      name: "Team meetup",
       scheduledStartTime: FUTURE_START,
       scheduledEndTime: FUTURE_END,
       entityType: EntityType.EXTERNAL,
@@ -434,7 +434,7 @@ describe("403 mapping + token redaction", () => {
     );
 
     const result = await createEvent(BOT_TOKEN, GUILD, {
-      name: "The Muster",
+      name: "Team meetup",
       scheduledStartTime: FUTURE_START,
       entityType: EntityType.VOICE,
       channelId: VOICE_CHANNEL,

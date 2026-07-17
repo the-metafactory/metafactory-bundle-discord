@@ -6,11 +6,11 @@
 #
 # Matching is BY NAME (channels by name+parent). RENAMING here reads as delete+create.
 # Nothing live is ever deleted unless it is BOTH listed under `prune:` below AND you
-# pass `--prune`. This file demonstrates every feature: gated "rings" (a role-gated
-# category is @everyone-denied + role-allowed), a forum with tags, and category- and
+# pass `--prune`. This file demonstrates every feature: a role-gated category
+# (@everyone-denied + role-allowed), a forum with tags, and category- and
 # channel-level overwrite patterns.
 
-# ── roles ── the rings. Higher rings see more categories (via overwrites below).
+# ── roles ── higher roles see more categories (via overwrites below).
 roles:
   Newcomer:
     color: 0x95A5A6
@@ -25,7 +25,7 @@ roles:
     mentionable: true
     permissions: [VIEW_CHANNEL, SEND_MESSAGES, READ_MESSAGE_HISTORY, ADD_REACTIONS, EMBED_LINKS, MANAGE_THREADS]
 
-# ── categories ── each ring is a category gated by a permission overwrite.
+# ── categories ── each gated category is hidden from @everyone by a permission overwrite.
 categories:
   Lobby:
     # Open to everyone — the ground floor.
@@ -39,7 +39,7 @@ categories:
         deny: [VIEW_CHANNEL]
       Member:
         allow: [VIEW_CHANNEL]
-  Inner Ring:
+  Staff:
     # Builders only: deny @everyone, allow Builder.
     overwrites:
       "@everyone":
@@ -72,7 +72,7 @@ channels:
         allow: [VIEW_CHANNEL, MANAGE_THREADS]
   strategy:
     type: text
-    parent: Inner Ring
+    parent: Staff
     topic: "Builders only — direction and planning."
 
 # ── guild settings ── pointers resolve to channels created above (same run).

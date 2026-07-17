@@ -48,7 +48,7 @@ describe("createThread", () => {
       fakeResponse(201, { id: "555000111222333444" })
     );
 
-    const result = await createThread(BOT_TOKEN, CHANNEL, { name: "quest: smoke", type: 11 });
+    const result = await createThread(BOT_TOKEN, CHANNEL, { name: "smoke test", type: 11 });
 
     expect(result.success).toBe(true);
     expect(result.threadId).toBe("555000111222333444");
@@ -58,7 +58,7 @@ describe("createThread", () => {
     expect(init.method).toBe("POST");
     const body = JSON.parse(init.body as string);
     expect(body.type).toBe(11);
-    expect(body.name).toBe("quest: smoke");
+    expect(body.name).toBe("smoke test");
     // Auth header carries the token; nothing else does.
     expect((init.headers as Record<string, string>).Authorization).toBe(`Bot ${BOT_TOKEN}`);
 
@@ -70,7 +70,7 @@ describe("createThread", () => {
       fakeResponse(201, { id: "555000111222333444" })
     );
 
-    const result = await createThread(BOT_TOKEN, CHANNEL, { name: "quest: private", type: 12 });
+    const result = await createThread(BOT_TOKEN, CHANNEL, { name: "private test", type: 12 });
 
     expect(result.success).toBe(true);
     const [, init] = callArgs(fetchMock);
@@ -260,8 +260,8 @@ describe("listArchivedThreads", () => {
     const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
       fakeResponse(200, {
         threads: [
-          { id: "1", name: "old-quest", thread_metadata: { archived: true } },
-          { id: "2", name: "older-quest", thread_metadata: { archived: true } },
+          { id: "1", name: "old-thread", thread_metadata: { archived: true } },
+          { id: "2", name: "older-thread", thread_metadata: { archived: true } },
         ],
         has_more: false,
       })
@@ -272,8 +272,8 @@ describe("listArchivedThreads", () => {
     const [url] = callArgs(fetchMock);
     expect(url).toBe(`https://discord.com/api/v10/channels/${CHANNEL}/threads/archived/public`);
     expect(page.threads).toEqual([
-      { id: "1", name: "old-quest", archived: true },
-      { id: "2", name: "older-quest", archived: true },
+      { id: "1", name: "old-thread", archived: true },
+      { id: "2", name: "older-thread", archived: true },
     ]);
     expect(page.hasMore).toBe(false);
 
