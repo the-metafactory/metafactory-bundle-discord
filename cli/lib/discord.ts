@@ -1,8 +1,10 @@
 /**
- * Discord operations — webhook posting and bot API reading.
+ * Discord operations — message posting and reading via the bot API.
  *
- * POST uses webhooks (fast, no bot token needed per-channel).
- * READ uses bot token (needed for fetching messages).
+ * Every call here authenticates with the bot token against the Discord REST API
+ * (`/channels/{id}/messages` for posts, `/channels/{id}/messages?limit=` for
+ * reads). Webhook posting lives elsewhere — see `cli/lib/guild/webhooks.ts` for
+ * webhook create/list/delete and execute-with-identity.
  */
 
 const DISCORD_API = "https://discord.com/api/v10";
