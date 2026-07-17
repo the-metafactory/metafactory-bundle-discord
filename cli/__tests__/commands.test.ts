@@ -24,7 +24,7 @@ function names(cmd: Command): string[] {
 
 describe("registerAll", () => {
   test("registers the same top-level commands, in order", () => {
-    expect(names(build())).toEqual(["post", "read", "channels", "threads", "role", "config"]);
+    expect(names(build())).toEqual(["post", "read", "channels", "threads", "role", "perms", "config"]);
   });
 
   test("role has add + remove subcommands", () => {
