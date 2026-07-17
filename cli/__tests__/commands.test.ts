@@ -27,9 +27,9 @@ describe("registerAll", () => {
     expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "role", "perms", "event", "config"]);
   });
 
-  test("role has add + remove subcommands", () => {
+  test("role has member-assignment + lifecycle subcommands", () => {
     const role = build().commands.find((c) => c.name() === "role")!;
-    expect(names(role)).toEqual(["add", "remove"]);
+    expect(names(role)).toEqual(["add", "remove", "create", "edit", "delete", "reorder", "list"]);
   });
 
   test("config has set, set-server, get, show, path subcommands", () => {
