@@ -18,6 +18,7 @@ import { registerThread } from "./thread";
 import { registerRole } from "./role";
 import { registerPerms } from "./perms";
 import { registerEvent } from "./event";
+import { registerWebhook } from "./webhook";
 import { registerConfig } from "./config";
 
 export function registerAll(program: Command): void {
@@ -30,5 +31,6 @@ export function registerAll(program: Command): void {
   registerRole(program);
   registerPerms(program);
   registerEvent(program);
+  registerWebhook(program);
   registerConfig(program);
 }

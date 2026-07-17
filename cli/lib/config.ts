@@ -107,8 +107,9 @@ export function getConfigPath(): string {
 }
 
 /**
- * Resolve a channel name to its webhook URL.
- * Falls back to defaultChannel if no name given.
+ * Resolve a channel name to its cached channel id (posts go via the bot API
+ * against `/channels/{id}/messages`, not a webhook). Falls back to
+ * defaultChannel if no name given.
  */
 export function resolveChannel(config: DiscordCliConfig, name?: string): { name: string; id?: string } | null {
   const channelName = name ?? config.defaultChannel;
