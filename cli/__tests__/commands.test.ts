@@ -24,7 +24,7 @@ function names(cmd: Command): string[] {
 
 describe("registerAll", () => {
   test("registers the same top-level commands, in order", () => {
-    expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "role", "perms", "event", "webhook", "config"]);
+    expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "role", "perms", "event", "webhook", "guild", "config"]);
   });
 
   test("role has member-assignment + lifecycle subcommands", () => {
@@ -35,6 +35,15 @@ describe("registerAll", () => {
   test("webhook has create, list, delete, exec subcommands", () => {
     const webhook = build().commands.find((c) => c.name() === "webhook")!;
     expect(names(webhook)).toEqual(["create", "list", "delete", "exec"]);
+  });
+
+  test("guild has show, edit, community-enable, welcome, onboarding subcommands", () => {
+    const guild = build().commands.find((c) => c.name() === "guild")!;
+    expect(names(guild)).toEqual(["show", "edit", "community-enable", "welcome", "onboarding"]);
+    const welcome = guild.commands.find((c) => c.name() === "welcome")!;
+    expect(names(welcome)).toEqual(["show", "set"]);
+    const onboarding = guild.commands.find((c) => c.name() === "onboarding")!;
+    expect(names(onboarding)).toEqual(["show", "set"]);
   });
 
   test("config has set, set-server, get, show, path subcommands", () => {

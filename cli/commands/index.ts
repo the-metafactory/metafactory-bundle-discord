@@ -19,6 +19,7 @@ import { registerRole } from "./role";
 import { registerPerms } from "./perms";
 import { registerEvent } from "./event";
 import { registerWebhook } from "./webhook";
+import { registerGuild } from "./guild";
 import { registerConfig } from "./config";
 
 export function registerAll(program: Command): void {
@@ -32,5 +33,6 @@ export function registerAll(program: Command): void {
   registerPerms(program);
   registerEvent(program);
   registerWebhook(program);
+  registerGuild(program);
   registerConfig(program);
 }
