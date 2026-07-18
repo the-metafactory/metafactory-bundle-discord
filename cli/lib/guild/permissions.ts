@@ -42,6 +42,7 @@ import { discordRequest } from "../http";
  * Values exceed 2^31 — kept as `bigint` so composition/serialization is lossless.
  */
 export const PERMISSIONS: Record<string, bigint> = {
+  CREATE_INSTANT_INVITE: 1n << 0n,
   VIEW_CHANNEL: 1n << 10n,
   SEND_MESSAGES: 1n << 11n,
   MANAGE_CHANNELS: 1n << 4n,
