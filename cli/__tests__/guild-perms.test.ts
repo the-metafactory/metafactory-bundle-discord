@@ -86,6 +86,17 @@ describe("bitmask composition", () => {
     );
   });
 
+  test("CREATE_INSTANT_INVITE is bit 0 and round-trips (invite-lockdown use case)", () => {
+    expect(PERMISSIONS.CREATE_INSTANT_INVITE).toBe(1n);
+    const bits = parsePermissionList("CREATE_INSTANT_INVITE");
+    expect(bitsToPermissionNames(bits)).toEqual(["CREATE_INSTANT_INVITE"]);
+    // composes cleanly alongside a high bit, same as any other flag
+    const combined = parsePermissionList("CREATE_INSTANT_INVITE,VIEW_CHANNEL");
+    expect([...bitsToPermissionNames(combined)].sort()).toEqual(
+      ["CREATE_INSTANT_INVITE", "VIEW_CHANNEL"].sort()
+    );
+  });
+
   test("unknown permission name errors listing valid names", () => {
     expect(() => parsePermissionList("VIEW_CHANNEL,NOT_A_PERM")).toThrow(
       /Unknown permission name\(s\): NOT_A_PERM/
