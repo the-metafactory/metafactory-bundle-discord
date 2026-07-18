@@ -18,7 +18,8 @@ import type { Command } from "commander";
 import { loadConfig } from "../lib/config";
 import type { ServerContextOptions } from "../lib/server-context";
 import { resolveRoleId } from "../lib/discord";
-import { resolveContextOrExit, resolveChannelId, isDiscordId } from "./shared";
+import { resolveContextOrExit, isDiscordId } from "./shared";
+import { resolveChannelIdByName } from "./channel";
 import type { ResolvedServerContext } from "../lib/server-context";
 import type { DiscordCliConfig } from "../lib/config";
 import {
@@ -94,25 +95,27 @@ async function resolveTargetOrExit(
 }
 
 /**
- * Resolve `--channel` to a channel id, or exit non-zero. Wraps the shared
- * name/id resolver with CLI-exit semantics.
+ * Resolve `--channel` to a channel id, or exit non-zero.
+ *
+ * Uses `resolveChannelIdByName` (channel.ts) rather than the shared
+ * post/read/thread resolver — that one's backing `listChannels` filters to
+ * text (0) and announcement (5) types only, which silently excludes
+ * categories (4) and voice channels (2). Permission overwrites are a
+ * first-class concept on every channel type (gating a category behind a
+ * role is the primary `perms set` use case), so this needs the all-types
+ * resolver `channel.ts` already uses for create/edit/delete.
  */
 async function resolveChannelOrExit(
-  config: DiscordCliConfig,
-  ctx: ResolvedServerContext,
   botToken: string,
   guildId: string,
   channel: string
 ): Promise<string> {
-  const id = await resolveChannelId(config, ctx, botToken, guildId, channel);
-  if (!id) {
-    console.error(
-      `Channel "${channel}" not found in guild ${guildId}. ` +
-        `Pass the channel's snowflake id, or check: discord channels --all`
-    );
+  try {
+    return await resolveChannelIdByName(botToken, guildId, channel, "Channel");
+  } catch (err) {
+    console.error((err as Error).message);
     process.exit(1);
   }
-  return id;
 }
 
 /** Load config + context and validate token/guild, or exit non-zero. */
@@ -159,7 +162,7 @@ export function registerPerms(program: Command): void {
     .option("-g, --guild <id>", "Guild ID (overrides config)")
     .option("-s, --server <name>", "Named server profile from config")
     .action(async (opts: PermsOptions) => {
-      const { config, ctx, botToken, guildId } = contextOrExit(opts);
+      const { botToken, guildId } = contextOrExit(opts);
 
       let allow: string;
       let deny: string;
@@ -171,13 +174,7 @@ export function registerPerms(program: Command): void {
         process.exit(1);
       }
 
-      const channelId = await resolveChannelOrExit(
-        config,
-        ctx,
-        botToken,
-        guildId,
-        opts.channel
-      );
+      const channelId = await resolveChannelOrExit(botToken, guildId, opts.channel);
       const target = await resolveTargetOrExit(opts, botToken, guildId);
 
       try {
@@ -205,15 +202,9 @@ export function registerPerms(program: Command): void {
     .option("-g, --guild <id>", "Guild ID (overrides config)")
     .option("-s, --server <name>", "Named server profile from config")
     .action(async (opts: PermsOptions) => {
-      const { config, ctx, botToken, guildId } = contextOrExit(opts);
+      const { botToken, guildId } = contextOrExit(opts);
 
-      const channelId = await resolveChannelOrExit(
-        config,
-        ctx,
-        botToken,
-        guildId,
-        opts.channel
-      );
+      const channelId = await resolveChannelOrExit(botToken, guildId, opts.channel);
       const target = await resolveTargetOrExit(opts, botToken, guildId);
 
       try {
@@ -234,15 +225,9 @@ export function registerPerms(program: Command): void {
     .option("-g, --guild <id>", "Guild ID (overrides config)")
     .option("-s, --server <name>", "Named server profile from config")
     .action(async (opts: PermsOptions) => {
-      const { config, ctx, botToken, guildId } = contextOrExit(opts);
+      const { botToken, guildId } = contextOrExit(opts);
 
-      const channelId = await resolveChannelOrExit(
-        config,
-        ctx,
-        botToken,
-        guildId,
-        opts.channel
-      );
+      const channelId = await resolveChannelOrExit(botToken, guildId, opts.channel);
 
       let overwrites: Overwrite[];
       try {
@@ -277,15 +262,9 @@ export function registerPerms(program: Command): void {
     .option("-g, --guild <id>", "Guild ID (overrides config)")
     .option("-s, --server <name>", "Named server profile from config")
     .action(async (opts: PermsOptions) => {
-      const { config, ctx, botToken, guildId } = contextOrExit(opts);
+      const { botToken, guildId } = contextOrExit(opts);
 
-      const channelId = await resolveChannelOrExit(
-        config,
-        ctx,
-        botToken,
-        guildId,
-        opts.channel
-      );
+      const channelId = await resolveChannelOrExit(botToken, guildId, opts.channel);
 
       let result: SyncResult;
       try {
