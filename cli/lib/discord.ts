@@ -21,6 +21,15 @@ export interface DiscordMessage {
   content: string;
   timestamp: string;
   threadId?: string;
+  attachments?: DiscordAttachment[];
+}
+
+export interface DiscordAttachment {
+  id: string;
+  filename: string;
+  contentType?: string;
+  size: number;
+  url: string;
 }
 
 export interface DiscordChannel {
@@ -68,6 +77,15 @@ interface DiscordApiMessage {
   content: string;
   timestamp: string;
   thread?: { id: string };
+  attachments?: DiscordApiAttachment[];
+}
+
+interface DiscordApiAttachment {
+  id: string;
+  filename: string;
+  content_type?: string;
+  size: number;
+  url: string;
 }
 
 interface DiscordApiMessageCreated {
@@ -252,7 +270,31 @@ export async function readMessages(
     content: m.content,
     timestamp: m.timestamp,
     threadId: m.thread?.id,
+    attachments: m.attachments?.length
+      ? m.attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          contentType: a.content_type,
+          size: a.size,
+          url: a.url,
+        }))
+      : undefined,
   }));
+}
+
+/**
+ * Download a message attachment to a local file. Discord CDN attachment URLs
+ * are pre-signed (and expire), so a plain fetch — no bot auth — is correct.
+ * Returns the number of bytes written.
+ */
+export async function downloadAttachment(url: string, destPath: string): Promise<number> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to download attachment: ${res.status} ${res.statusText}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  await Bun.write(destPath, bytes);
+  return bytes.length;
 }
 
 /**
