@@ -24,12 +24,17 @@ function names(cmd: Command): string[] {
 
 describe("registerAll", () => {
   test("registers the same top-level commands, in order", () => {
-    expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "role", "perms", "event", "webhook", "guild", "config"]);
+    expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "forum", "role", "perms", "event", "webhook", "guild", "config"]);
   });
 
   test("role has member-assignment + lifecycle subcommands", () => {
     const role = build().commands.find((c) => c.name() === "role")!;
     expect(names(role)).toEqual(["add", "remove", "create", "edit", "delete", "reorder", "list"]);
+  });
+
+  test("forum has post, tags, posts subcommands", () => {
+    const forum = build().commands.find((c) => c.name() === "forum")!;
+    expect(names(forum)).toEqual(["post", "tags", "posts"]);
   });
 
   test("webhook has create, list, delete, exec subcommands", () => {
