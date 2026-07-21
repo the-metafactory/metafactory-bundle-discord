@@ -9,6 +9,14 @@
  *     tag-count cap, error surfaced without the token
  *   - listForumPosts: guild active-threads filtered to the forum parent,
  *     archived-public merge (+dedupe), includeArchived: false skips the 2nd GET
+ *   - assertRetagFlags: --set is mutually exclusive with --add/--remove; at
+ *     least one flag required
+ *   - computeRetaggedTagIds: add/remove/set math (dedupe, no-op remove,
+ *     over-cap throw)
+ *   - resolveForumThread: snowflake → GET /channels/{id}; name → guild active
+ *     threads matched case-insensitively (ambiguous/not-found errors)
+ *   - setAppliedTags: PATCH /channels/{thread} payload shape ({ applied_tags }),
+ *     403 → Manage-Threads guidance, token never in errors
  *
  * Plus the forum resolver seam: `resolveChannelIdByName` with the forum type
  * filter (CHANNEL_TYPE.forum) picks the forum over a same-named text channel.
@@ -20,9 +28,13 @@
 
 import { describe, expect, test, spyOn } from "bun:test";
 import {
+  assertRetagFlags,
+  computeRetaggedTagIds,
   createForumPost,
   listForumPosts,
   resolveForumTagIds,
+  resolveForumThread,
+  setAppliedTags,
   MAX_APPLIED_TAGS,
 } from "../lib/guild/forum";
 import { CHANNEL_TYPE } from "../lib/guild/channels";
@@ -279,6 +291,250 @@ describe("listForumPosts", () => {
     expect(caught).toBeDefined();
     expect(caught?.message).toMatch(/403/);
     expect(caught?.message).not.toContain(BOT_TOKEN);
+
+    fetchMock.mockRestore();
+  });
+});
+
+// ─── assertRetagFlags ───────────────────────────────────────────────────────────
+
+describe("assertRetagFlags", () => {
+  test("--set alone is valid", () => {
+    expect(() => assertRetagFlags({ set: "done" })).not.toThrow();
+  });
+
+  test("--add alone, --remove alone, and both together are valid", () => {
+    expect(() => assertRetagFlags({ add: "in-progress" })).not.toThrow();
+    expect(() => assertRetagFlags({ remove: "looking-for-party" })).not.toThrow();
+    expect(() =>
+      assertRetagFlags({ add: "in-progress", remove: "looking-for-party" })
+    ).not.toThrow();
+  });
+
+  test("--set with --add → mutual-exclusion error", () => {
+    expect(() => assertRetagFlags({ set: "done", add: "x" })).toThrow(
+      /--set replaces the full tag list; it cannot be combined with --add\/--remove/
+    );
+  });
+
+  test("--set with --remove → mutual-exclusion error", () => {
+    expect(() => assertRetagFlags({ set: "done", remove: "x" })).toThrow(/cannot be combined/);
+  });
+
+  test("no flags at all → at-least-one error", () => {
+    expect(() => assertRetagFlags({})).toThrow(/at least one of --add, --remove, or --set/);
+  });
+});
+
+// ─── computeRetaggedTagIds ──────────────────────────────────────────────────────
+
+describe("computeRetaggedTagIds", () => {
+  const CURRENT = ["300000000000000003", "500000000000000005"];
+
+  test("add appends without duplicating an already-applied tag", () => {
+    const next = computeRetaggedTagIds(CURRENT, {
+      addIds: ["400000000000000004", "300000000000000003"],
+    });
+    expect(next).toEqual(["300000000000000003", "500000000000000005", "400000000000000004"]);
+  });
+
+  test("remove filters; removing an absent id is a no-op", () => {
+    const next = computeRetaggedTagIds(CURRENT, {
+      removeIds: ["500000000000000005", "999999999999999999"],
+    });
+    expect(next).toEqual(["300000000000000003"]);
+  });
+
+  test("add + remove combined: the state transition (open → claimed)", () => {
+    const next = computeRetaggedTagIds(["300000000000000003"], {
+      addIds: ["400000000000000004"],
+      removeIds: ["300000000000000003"],
+    });
+    expect(next).toEqual(["400000000000000004"]);
+  });
+
+  test("set replaces the full list and dedupes", () => {
+    const next = computeRetaggedTagIds(CURRENT, {
+      setIds: ["400000000000000004", "400000000000000004"],
+    });
+    expect(next).toEqual(["400000000000000004"]);
+  });
+
+  test("set to empty clears all tags", () => {
+    expect(computeRetaggedTagIds(CURRENT, { setIds: [] })).toEqual([]);
+  });
+
+  test(`result beyond ${MAX_APPLIED_TAGS} tags → throws locally`, () => {
+    expect(() =>
+      computeRetaggedTagIds(["1", "2", "3", "4", "5"], { addIds: ["6"] })
+    ).toThrow(/at most 5 tags/);
+  });
+});
+
+// ─── resolveForumThread ─────────────────────────────────────────────────────────
+
+describe("resolveForumThread", () => {
+  test("snowflake → GET /channels/{id}, returns parent + applied tags", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, {
+        id: THREAD,
+        name: "open quest",
+        parent_id: FORUM,
+        applied_tags: ["300000000000000003"],
+      })
+    );
+
+    const info = await resolveForumThread(BOT_TOKEN, GUILD, THREAD);
+
+    const [url] = callArgs(fetchMock);
+    expect(url).toBe(`https://discord.com/api/v10/channels/${THREAD}`);
+    expect(info).toEqual({
+      id: THREAD,
+      name: "open quest",
+      parentId: FORUM,
+      appliedTagIds: ["300000000000000003"],
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  test("name → matched case-insensitively against the guild's active threads", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, ACTIVE_RESPONSE)
+    );
+
+    const info = await resolveForumThread(BOT_TOKEN, GUILD, "OPEN Quest");
+
+    const [url] = callArgs(fetchMock);
+    expect(url).toBe(`https://discord.com/api/v10/guilds/${GUILD}/threads/active`);
+    expect(info.id).toBe("600000000000000006");
+    expect(info.parentId).toBe(FORUM);
+    expect(info.appliedTagIds).toEqual(["300000000000000003"]);
+
+    fetchMock.mockRestore();
+  });
+
+  test("ambiguous name → error listing the matching ids", async () => {
+    const twins = {
+      threads: [
+        { ...ACTIVE_RESPONSE.threads[0] },
+        { ...ACTIVE_RESPONSE.threads[0], id: "620000000000000006" },
+      ],
+    };
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, twins)
+    );
+
+    await expect(resolveForumThread(BOT_TOKEN, GUILD, "open quest")).rejects.toThrow(
+      /ambiguous — 2 active threads match \(ids: 600000000000000006, 620000000000000006\)/
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  test("unknown name → not-found error pointing at forum posts / retag-by-id", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, ACTIVE_RESPONSE)
+    );
+
+    await expect(resolveForumThread(BOT_TOKEN, GUILD, "no such quest")).rejects.toThrow(
+      /not found among the guild's active threads/
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  test("error → throws with status, token never present", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(404, { message: "Unknown Channel" })
+    );
+
+    let caught: Error | undefined;
+    try {
+      await resolveForumThread(BOT_TOKEN, GUILD, THREAD);
+    } catch (err) {
+      caught = err as Error;
+    }
+    expect(caught?.message).toMatch(/404/);
+    expect(caught?.message).not.toContain(BOT_TOKEN);
+
+    fetchMock.mockRestore();
+  });
+});
+
+// ─── setAppliedTags ─────────────────────────────────────────────────────────────
+
+describe("setAppliedTags", () => {
+  test("PATCH /channels/{thread} with { applied_tags } — the full payload", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, { id: THREAD })
+    );
+
+    const result = await setAppliedTags(BOT_TOKEN, THREAD, [
+      "400000000000000004",
+      "500000000000000005",
+    ]);
+
+    expect(result.success).toBe(true);
+    const [url, init] = callArgs(fetchMock);
+    expect(url).toBe(`https://discord.com/api/v10/channels/${THREAD}`);
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      applied_tags: ["400000000000000004", "500000000000000005"],
+    });
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bot ${BOT_TOKEN}`);
+
+    fetchMock.mockRestore();
+  });
+
+  test("empty list is sent as applied_tags: [] (clears the post's tags)", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(200, { id: THREAD })
+    );
+
+    await setAppliedTags(BOT_TOKEN, THREAD, []);
+
+    expect(JSON.parse(callArgs(fetchMock)[1].body as string)).toEqual({ applied_tags: [] });
+
+    fetchMock.mockRestore();
+  });
+
+  test(`more than ${MAX_APPLIED_TAGS} tags → local error, no network call`, async () => {
+    const fetchMock = spyOn(globalThis, "fetch");
+
+    const result = await setAppliedTags(BOT_TOKEN, THREAD, ["1", "2", "3", "4", "5", "6"]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/at most 5 tags/);
+    expect(fetchMock.mock.calls.length).toBe(0);
+
+    fetchMock.mockRestore();
+  });
+
+  test("403 → Manage Threads guidance (moderated tags), token never present", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(403, { message: "Missing Permissions" })
+    );
+
+    const result = await setAppliedTags(BOT_TOKEN, THREAD, ["400000000000000004"]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Manage Threads/);
+    expect(result.error).toMatch(/\[moderated\] tags/);
+    expect(result.error).not.toContain(BOT_TOKEN);
+
+    fetchMock.mockRestore();
+  });
+
+  test("404 → thread not found", async () => {
+    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      fakeResponse(404, { message: "Unknown Channel" })
+    );
+
+    const result = await setAppliedTags(BOT_TOKEN, THREAD, []);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("thread not found");
 
     fetchMock.mockRestore();
   });

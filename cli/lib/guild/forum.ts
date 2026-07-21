@@ -1,6 +1,8 @@
 /**
  * Forum posts — create a post (thread + mandatory starter message) in a forum
- * channel, resolve tag names to ids, and list a forum's posts.
+ * channel, resolve tag names to ids, list a forum's posts, and RETAG an
+ * existing post (the quest-board state machine: looking-for-party →
+ * in-progress → done).
  *
  * A forum post IS a thread: Discord's `POST /channels/{forumId}/threads` on a
  * forum channel takes a `message` object (the starter message) alongside the
@@ -24,7 +26,9 @@
  */
 
 import { discordRequest } from "../http";
+import { isSnowflake } from "../discord";
 import type { ResolvedForumTag } from "./channels";
+import type { ThreadOpResult } from "./threads";
 
 /**
  * Discord caps a forum post's `applied_tags` at 5. Enforced client-side (before
@@ -216,4 +220,174 @@ export async function listForumPosts(
     .map((t) => ({ ...toForumPost(t), archived: true }));
 
   return [...active, ...archived];
+}
+
+// ─── retag (the tag state machine) ──────────────────────────────────────────
+
+/** A forum post resolved for retagging: identity, parent forum, current tags. */
+export interface ForumThreadInfo {
+  id: string;
+  name: string;
+  /** The parent forum channel id; null when Discord returns none (not a thread). */
+  parentId: string | null;
+  appliedTagIds: string[];
+}
+
+/** The raw `--add/--remove/--set` flags as the CLI receives them. */
+export interface RetagFlags {
+  add?: string;
+  remove?: string;
+  set?: string;
+}
+
+/**
+ * Validate the retag flag COMBINATION before any network call: `--set` replaces
+ * the whole list so it is mutually exclusive with `--add`/`--remove`, and at
+ * least one flag is required. Pure — throws on an invalid combination.
+ */
+export function assertRetagFlags(flags: RetagFlags): void {
+  const incremental = flags.add !== undefined || flags.remove !== undefined;
+  if (flags.set !== undefined && incremental) {
+    throw new Error("--set replaces the full tag list; it cannot be combined with --add/--remove.");
+  }
+  if (flags.set === undefined && !incremental) {
+    throw new Error("Nothing to change — pass at least one of --add, --remove, or --set.");
+  }
+}
+
+/**
+ * Compute the post's next `applied_tags` id list. Pure — no I/O.
+ *
+ *   - `setIds` replaces the full list (deduped, order preserved).
+ *   - Otherwise: current minus `removeIds`, then `addIds` appended (an id
+ *     already present is not duplicated; removing an absent id is a no-op).
+ *
+ * Throws when the result exceeds `MAX_APPLIED_TAGS`, so the caller fails
+ * locally instead of collecting a 400. Flag mutual exclusion is the caller's
+ * concern (`assertRetagFlags`) — this only does the math.
+ */
+export function computeRetaggedTagIds(
+  currentIds: string[],
+  changes: { addIds?: string[]; removeIds?: string[]; setIds?: string[] }
+): string[] {
+  let next: string[];
+  if (changes.setIds !== undefined) {
+    next = [...new Set(changes.setIds)];
+  } else {
+    const remove = new Set(changes.removeIds ?? []);
+    next = currentIds.filter((id) => !remove.has(id));
+    for (const id of changes.addIds ?? []) {
+      if (!next.includes(id)) next.push(id);
+    }
+  }
+  if (next.length > MAX_APPLIED_TAGS) {
+    throw new Error(
+      `Too many tags: ${next.length}. Discord allows at most ${MAX_APPLIED_TAGS} tags per forum post.`
+    );
+  }
+  return next;
+}
+
+/**
+ * Resolve `--thread` (snowflake id OR name) to a forum post.
+ *
+ * Id path: GET /channels/{id} — works for active AND archived posts.
+ * Name path: the guild's ACTIVE threads (GET /guilds/{guildId}/threads/active),
+ * matched case-insensitively. An archived post must be retagged by id (there is
+ * no guild-wide archived listing); the not-found error says exactly that. An
+ * ambiguous name errors listing the matching ids rather than guessing.
+ */
+export async function resolveForumThread(
+  token: string,
+  guildId: string,
+  threadRef: string
+): Promise<ForumThreadInfo> {
+  if (isSnowflake(threadRef)) {
+    const res = await discordRequest<DiscordApiForumThread>(
+      token,
+      "GET",
+      `/channels/${threadRef}`
+    );
+    if (!res.ok || !res.data) {
+      throw new Error(`Failed to fetch thread ${threadRef}: ${res.status} ${res.errorText ?? ""}`);
+    }
+    const t = res.data;
+    return {
+      id: t.id,
+      name: t.name,
+      parentId: t.parent_id ?? null,
+      appliedTagIds: t.applied_tags ?? [],
+    };
+  }
+
+  const res = await discordRequest<DiscordApiThreadListResponse>(
+    token,
+    "GET",
+    `/guilds/${guildId}/threads/active`
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to list active threads: ${res.status} ${res.errorText ?? ""}`);
+  }
+  const wanted = threadRef.toLowerCase();
+  const matches = (res.data?.threads ?? []).filter((t) => t.name.toLowerCase() === wanted);
+  if (matches.length === 0) {
+    throw new Error(
+      `Thread "${threadRef}" not found among the guild's active threads. ` +
+        `Archived posts must be retagged by id — find it with: discord forum posts -c <forum-channel>`
+    );
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `Thread name "${threadRef}" is ambiguous — ${matches.length} active threads match ` +
+        `(ids: ${matches.map((t) => t.id).join(", ")}). Use the id instead.`
+    );
+  }
+  const t = matches[0]!;
+  return {
+    id: t.id,
+    name: t.name,
+    parentId: t.parent_id ?? null,
+    appliedTagIds: t.applied_tags ?? [],
+  };
+}
+
+/**
+ * Replace a forum post's applied tags.
+ * Discord: PATCH /channels/{threadId} with body `{ applied_tags }`.
+ *
+ * Tag count is validated against `MAX_APPLIED_TAGS` before the request. A 403
+ * maps to the Manage-Threads guidance (Discord enforces MANAGE_THREADS for
+ * `[moderated]` tags and for retagging a post the bot did not create) — the
+ * check is NOT pre-blocked client-side; Discord stays the authority.
+ */
+export async function setAppliedTags(
+  token: string,
+  threadId: string,
+  tagIds: string[]
+): Promise<ThreadOpResult> {
+  if (tagIds.length > MAX_APPLIED_TAGS) {
+    return {
+      success: false,
+      error:
+        `Too many tags: ${tagIds.length}. ` +
+        `Discord allows at most ${MAX_APPLIED_TAGS} tags per forum post.`,
+    };
+  }
+
+  const res = await discordRequest(token, "PATCH", `/channels/${threadId}`, {
+    json: { applied_tags: tagIds },
+  });
+  if (res.ok) return { success: true };
+  if (res.status === 403) {
+    return {
+      success: false,
+      error:
+        `Bot lacks Manage Threads permission (required for [moderated] tags and for ` +
+        `retagging a post it did not create). Grant the bot Manage Threads in the channel/guild.`,
+    };
+  }
+  if (res.status === 404) {
+    return { success: false, error: "thread not found" };
+  }
+  return { success: false, error: `${res.status}: ${res.errorText ?? ""}` };
 }

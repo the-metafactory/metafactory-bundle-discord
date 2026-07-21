@@ -1,13 +1,20 @@
 /**
- * `discord forum post|tags|posts` — board-native forum workflows: create a
- * forum post (thread + starter message), list a forum's tags, and list its
- * posts with applied tag names.
+ * `discord forum post|tags|posts|retag` — board-native forum workflows: create
+ * a forum post (thread + starter message), list a forum's tags, list its posts
+ * with applied tag names, and retag an existing post.
  *
  * This closes the documented gap that kept quest boards hand-posted: forum
  * TAGS were already manageable (`channel tags set|list`) but there was no CLI
  * verb to create or list forum POSTS. A forum post IS a thread, so follow-ups
  * need no new verbs — `discord post --thread <id>` and `discord read --thread
  * <id>` work on the ids this command prints.
+ *
+ * `retag` is the quest board's STATE MACHINE (looking-for-party → in-progress
+ * → done): tags could previously only be set at post creation. It resolves the
+ * thread (id or active-thread name), reads the parent forum's `available_tags`,
+ * resolves tag NAMES case-insensitively, and PATCHes `applied_tags`. Moderated
+ * tags are NOT pre-blocked client-side — Discord enforces MANAGE_THREADS and a
+ * 403 surfaces the standard permission guidance.
  *
  * Channel resolution uses `resolveChannelIdByName` with the forum type filter
  * (the `perms.ts` precedent for picking the right resolver), then verifies the
@@ -23,9 +30,13 @@ import type { ServerContextOptions } from "../lib/server-context";
 import { channelTypeName } from "../lib/discord";
 import { getChannel, CHANNEL_TYPE, type GuildChannel } from "../lib/guild/channels";
 import {
+  assertRetagFlags,
+  computeRetaggedTagIds,
   createForumPost,
   listForumPosts,
   resolveForumTagIds,
+  resolveForumThread,
+  setAppliedTags,
   MAX_APPLIED_TAGS,
 } from "../lib/guild/forum";
 import { resolveContextOrExit } from "./shared";
@@ -44,6 +55,13 @@ interface TagsOptions extends ServerContextOptions {
 interface PostsOptions extends ServerContextOptions {
   channel: string;
   tag?: string;
+}
+
+interface RetagOptions extends ServerContextOptions {
+  thread: string;
+  add?: string;
+  remove?: string;
+  set?: string;
 }
 
 /** Resolve the {botToken, guildId} pair or exit non-zero with a clear message. */
@@ -96,7 +114,7 @@ async function resolveForumChannelOrExit(
 export function registerForum(program: Command): void {
   const forumCmd = program
     .command("forum")
-    .description("Create and list forum posts, and list a forum's tags");
+    .description("Create, list, and retag forum posts, and list a forum's tags");
 
   // ── post ──────────────────────────────────────────────────────────────────
   forumCmd
@@ -239,5 +257,102 @@ export function registerForum(program: Command): void {
           `  ${p.name.padEnd(35)} ${p.id}  (${p.messageCount} msgs)${tagNote}${archivedNote}`
         );
       }
+    });
+
+  // ── retag ─────────────────────────────────────────────────────────────────
+  forumCmd
+    .command("retag")
+    .description(
+      "Change a forum post's applied tags (the quest-board state machine)\n" +
+        "\n" +
+        "  --set replaces the full tag list; --add/--remove modify it\n" +
+        "  incrementally (mutually exclusive with --set). Tags are NAMES from\n" +
+        "  the parent forum's tag set; see them with: discord forum tags -c <forum>.\n" +
+        "  A name for --thread matches ACTIVE threads; archived posts need the id."
+    )
+    .requiredOption("-t, --thread <id-or-name>", "Forum post (thread snowflake id or name)")
+    .option("--add <names>", "Comma-separated tag NAMES to add to the post")
+    .option("--remove <names>", "Comma-separated tag NAMES to remove from the post")
+    .option("--set <names>", "Comma-separated tag NAMES replacing the full tag list")
+    .option("-g, --guild <id>", "Guild ID (overrides config)")
+    .option("-s, --server <name>", "Named server profile from config")
+    .action(async (opts: RetagOptions) => {
+      const { botToken, guildId } = requireTokenAndGuild(opts);
+
+      // Flag-combination guard first — before any network call.
+      try {
+        assertRetagFlags({ add: opts.add, remove: opts.remove, set: opts.set });
+      } catch (err) {
+        console.error((err as Error).message);
+        process.exit(1);
+      }
+
+      // Resolve the post, then its parent forum (source of `available_tags`).
+      let thread;
+      try {
+        thread = await resolveForumThread(botToken, guildId, opts.thread);
+      } catch (err) {
+        console.error((err as Error).message);
+        process.exit(1);
+      }
+      if (!thread.parentId) {
+        console.error(
+          `${thread.name} (${thread.id}) has no parent channel — it is not a forum post.`
+        );
+        process.exit(1);
+      }
+      let forum: GuildChannel;
+      try {
+        forum = await getChannel(botToken, thread.parentId);
+      } catch (err) {
+        console.error((err as Error).message);
+        process.exit(1);
+      }
+      if (forum.type !== CHANNEL_TYPE.forum) {
+        console.error(
+          `#${forum.name} (${forum.id}) is a ${channelTypeName(forum.type)} channel, not a ` +
+            `forum — "${thread.name}" is a plain thread, and only forum posts carry tags.`
+        );
+        process.exit(1);
+      }
+      const availableTags = forum.available_tags ?? [];
+
+      // Resolve names → ids per flag, then do the add/remove/set math.
+      let nextTagIds: string[];
+      try {
+        const resolveNames = (csv?: string): string[] | undefined =>
+          csv === undefined ? undefined : resolveForumTagIds(availableTags, csv.split(","));
+        nextTagIds = computeRetaggedTagIds(thread.appliedTagIds, {
+          addIds: resolveNames(opts.add),
+          removeIds: resolveNames(opts.remove),
+          setIds: resolveNames(opts.set),
+        });
+      } catch (err) {
+        console.error((err as Error).message);
+        process.exit(1);
+      }
+
+      const tagNameById = new Map(availableTags.map((t) => [t.id, t.name]));
+      const fmt = (ids: string[]): string =>
+        ids.length > 0 ? `[${ids.map((id) => tagNameById.get(id) ?? `tag:${id}`).join(", ")}]` : "(none)";
+      const before = fmt(thread.appliedTagIds);
+      const after = fmt(nextTagIds);
+
+      // No-op guard: identical before/after skips the PATCH (nothing to write,
+      // and a needless write could still 403 on already-applied moderated tags).
+      const unchanged =
+        nextTagIds.length === thread.appliedTagIds.length &&
+        nextTagIds.every((id) => thread.appliedTagIds.includes(id));
+      if (unchanged) {
+        console.log(`No change — "${thread.name}" in #${forum.name} already has ${after}`);
+        return;
+      }
+
+      const result = await setAppliedTags(botToken, thread.id, nextTagIds);
+      if (!result.success) {
+        console.error(`Failed to retag "${thread.name}": ${result.error}`);
+        process.exit(1);
+      }
+      console.log(`Retagged "${thread.name}" in #${forum.name}: ${before} → ${after}`);
     });
 }

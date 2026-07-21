@@ -144,11 +144,17 @@ discord forum post  -c quest-board --title "Quest: fix the boiler" \
   --tags quest:open,help-wanted "Reward: 3 favor. Claim below."  # prints thread id + URL
 discord forum posts -c quest-board                               # active + archived, with tag names
 discord forum posts -c quest-board --tag quest:open              # filter by tag name
+discord forum retag -t <threadId> --add in-progress --remove quest:open  # state transition
+discord forum retag -t "Quest: fix the boiler" --set done        # replace the full tag list
 ```
 
 Tags are given by NAME (case-insensitive against the forum's tag set; manage the
 set with `channel tags set`). Follow-ups need no new verbs — the printed id is a
 thread id, so `discord post --thread <id>` and `discord read --thread <id>` work.
+`retag` is the quest-board state machine (`--set` replaces; `--add`/`--remove`
+modify incrementally and are mutually exclusive with `--set`); a `--thread` NAME
+matches active threads only — retag archived posts by id. Moderated tags need
+the bot to have Manage Threads (Discord enforces it; a 403 says so).
 
 **`event`** — guild scheduled events (RSVP-able events):
 

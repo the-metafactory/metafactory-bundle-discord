@@ -32,9 +32,9 @@ describe("registerAll", () => {
     expect(names(role)).toEqual(["add", "remove", "create", "edit", "delete", "reorder", "list"]);
   });
 
-  test("forum has post, tags, posts subcommands", () => {
+  test("forum has post, tags, posts, retag subcommands", () => {
     const forum = build().commands.find((c) => c.name() === "forum")!;
-    expect(names(forum)).toEqual(["post", "tags", "posts"]);
+    expect(names(forum)).toEqual(["post", "tags", "posts", "retag"]);
   });
 
   test("webhook has create, list, delete, exec subcommands", () => {
