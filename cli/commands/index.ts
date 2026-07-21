@@ -15,6 +15,7 @@ import { registerChannels } from "./channels";
 import { registerChannel } from "./channel";
 import { registerThreads } from "./threads";
 import { registerThread } from "./thread";
+import { registerForum } from "./forum";
 import { registerRole } from "./role";
 import { registerPerms } from "./perms";
 import { registerEvent } from "./event";
@@ -29,6 +30,7 @@ export function registerAll(program: Command): void {
   registerChannel(program);
   registerThreads(program);
   registerThread(program);
+  registerForum(program);
   registerRole(program);
   registerPerms(program);
   registerEvent(program);

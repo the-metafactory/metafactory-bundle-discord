@@ -22,7 +22,7 @@ export function registerRead(program: Command): void {
     .command("read")
     .description("Read recent messages from a channel or thread")
     .option("-c, --channel <name>", "Channel name, id, or a pasted discord.com/channels URL (default: defaultChannel from config)")
-    .option("-t, --thread <name-or-id>", "Thread name, id, or a pasted discord.com/channels URL to read from")
+    .option("-t, --thread <name-or-id>", "Thread name, id, or a pasted discord.com/channels URL to read from (forum posts are threads — their id works here)")
     .option("-n, --limit <n>", "Number of messages", "10")
     .option("-g, --guild <id>", "Guild ID (or a pasted discord.com/channels URL) to resolve names against (overrides config)")
     .option("-s, --server <name>", "Named server profile from config (layers guildId + overrides)")

@@ -34,7 +34,7 @@ export function registerPost(program: Command): void {
     .description("Post a message to a Discord channel")
     .argument("[message...]", "Message text (optional when --file is given)")
     .option("-c, --channel <name>", "Channel name, id, or a pasted discord.com/channels URL (default: defaultChannel from config)")
-    .option("-t, --thread <name-or-id>", "Thread name, id, or a pasted discord.com/channels URL to post into")
+    .option("-t, --thread <name-or-id>", "Thread name, id, or a pasted discord.com/channels URL to post into (forum posts are threads — their id works here)")
     .option("-T, --create-thread <name>", "Create a thread from the posted message and print its ID")
     .option("-f, --file <path>", "Attach a file (repeatable)", (v: string, acc: string[]) => [...acc, v], [])
     .option("-g, --guild <id>", "Guild ID (or a pasted discord.com/channels URL) to resolve names against (overrides config)")
