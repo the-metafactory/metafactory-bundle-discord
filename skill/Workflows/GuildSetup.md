@@ -79,6 +79,28 @@ Commands:
    Identity is **by name** (channels by name + parent category). Renaming a
    resource in the layout reads as delete-then-create, not a rename.
 
+   **Ids the layout must not commit** — a channel topic that mentions a bot needs
+   the real numeric id for the mention to render. Write a `__NAME__` placeholder
+   and supply the value at diff/apply time:
+   ```yaml
+   channels:
+     arrivals:
+       type: text
+       topic: "Say hello by mentioning <@__ESCORT_BOT_ID__> — it opens you a thread."
+   ```
+   ```bash
+   export ESCORT_BOT_ID=<the bot's id>                     # from the environment
+   discord guild diff --layout guild-layout.yaml --server sandbox
+   # …or inline, which overrides the environment (repeatable):
+   discord guild diff --layout guild-layout.yaml --server sandbox --var ESCORT_BOT_ID=<id>
+   ```
+   Placeholders resolve in **any** string in the layout (values and keys), and
+   they resolve **before** the diff — so the plan compares real values and a
+   resolved layout that matches the guild still reports no changes. An
+   unresolved placeholder (or one set to an empty value) makes both `diff` and
+   `apply` exit 1 naming it, before any Discord call: a literal `__NAME__` shown
+   in a live channel topic is worse than a refused command.
+
 3. **Diff the layout against the live guild** — see exactly what would change
    before touching anything. `diff` mutates nothing; it exits 1 when there is
    drift (a non-empty plan) and 0 when the guild already matches — so it doubles

@@ -74,6 +74,12 @@ These are shipped behaviours, not conventions. They cannot be turned off:
   `unmanaged` and left alone. Removing something requires **both** a `prune:`
   block in the layout naming it **and** the `--prune` flag. One without the other
   deletes nothing.
+- **An unresolved layout placeholder refuses the run.** A layout may carry
+  `__NAME__` placeholders for ids it must not commit (a bot mention in a channel
+  topic). They resolve from the environment, or from `--var NAME=VALUE` (which
+  wins), **before** the diff. If any are unresolved — including set-but-empty —
+  `guild diff` and `guild apply` both exit 1 naming them, before any Discord
+  call. A literal `__NAME__` is never written into a guild.
 - **Destructive single commands require confirmation.** `role delete`,
   `channel delete`, and `event delete` refuse to run without `-y/--yes`;
   `webhook delete` needs `-y/--yes` too. Managed roles (bot / integration /
@@ -193,6 +199,10 @@ discord guild snapshot -o guild.snapshot.yaml               # read the live guil
 discord guild diff  --layout guild-layout.yaml              # plan; exit 1 on drift, 0 in sync
 discord guild apply --layout guild-layout.yaml              # DRY RUN — prints plan, mutates nothing
 discord guild apply --layout guild-layout.yaml --execute    # actually build it
+
+# __NAME__ placeholders (ids the layout must not commit — e.g. a bot mention in a
+# topic) resolve from the environment, or from --var (repeatable; --var wins):
+discord guild apply --layout guild-layout.yaml --var ESCORT_BOT_ID=<id> --execute
 ```
 
 For the end-to-end guild-authoring walkthrough, read

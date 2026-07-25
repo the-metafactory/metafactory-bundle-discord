@@ -9,6 +9,22 @@
 # pass `--prune`. This file demonstrates every feature: a role-gated category
 # (@everyone-denied + role-allowed), a forum with tags, and category- and
 # channel-level overwrite patterns.
+#
+# PLACEHOLDERS. Any string here may carry `__NAME__` tokens, resolved from the
+# environment or from `--var NAME=VALUE` (which wins) before anything is planned.
+# Use them for values that must NOT be committed — a bot mention in a topic only
+# renders as a mention when the real id is in the text:
+#
+#   channels:
+#     arrivals:
+#       type: text
+#       topic: "Say hello by mentioning <@__ESCORT_BOT_ID__> — it opens you a thread."
+#
+#   ESCORT_BOT_ID=<id> discord guild apply --layout THIS_FILE --server <sandbox> --execute
+#
+# An unresolved placeholder REFUSES diff/apply (naming it) rather than writing a
+# literal `__NAME__` into a live guild. This example uses none, so it applies with
+# no variables set.
 
 # ── roles ── higher roles see more categories (via overwrites below).
 roles:

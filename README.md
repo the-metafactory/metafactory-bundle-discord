@@ -113,10 +113,40 @@ channels:
     topic: "Members' working channel."
 ```
 
+#### Placeholders — ids a layout must not commit
+
+Some values a layout needs are live platform ids: a channel topic only renders a
+clickable bot mention when the real numeric id is in the text. Write a
+`__NAME__` placeholder instead and supply the value at apply time:
+
+```yaml
+channels:
+  arrivals:
+    type: text
+    topic: "Say hello by mentioning <@__ESCORT_BOT_ID__> — it opens you a thread."
+```
+
+```bash
+export ESCORT_BOT_ID=<the bot's id>                                  # from the environment
+discord guild apply --layout guild-layout.yaml --execute
+
+discord guild apply --layout guild-layout.yaml --var ESCORT_BOT_ID=<id> --execute   # or inline
+```
+
+- `__NAME__` tokens are substituted **anywhere** in the layout — any string value
+  and any key — not just in topics.
+- Resolution happens **before** the diff, so `diff` compares real values and a
+  resolved layout that matches the guild still reports no changes.
+- `--var NAME=VALUE` is repeatable and **overrides** the environment.
+- **An unresolved placeholder refuses the command** (both `diff` and `apply`),
+  naming every missing variable, before any Discord call. A variable that is set
+  but empty counts as unset. A literal `__NAME__` is never written to a guild.
+
 **Safety defaults** (shipped, not conventions):
 
 - `guild apply` is a **dry run** without `--execute` — it prints the plan and changes nothing.
 - Deletion requires **both** a `prune:` block in the layout **and** the `--prune` flag; unmanaged resources are never deleted.
+- An unresolved `__NAME__` placeholder **refuses** `diff`/`apply` rather than shipping the literal token into a live guild.
 - `role`/`channel`/`event`/`webhook delete` refuse to run without `-y/--yes`.
 - Webhook URLs are printed once and never stored; webhook/bot tokens never appear in `list` or `snapshot` output.
 

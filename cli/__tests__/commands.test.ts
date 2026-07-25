@@ -56,6 +56,16 @@ describe("registerAll", () => {
     expect(names(config)).toEqual(["set", "set-server", "get", "show", "path"]);
   });
 
+  test("guild diff and apply both expose --layout and the repeatable --var", () => {
+    const guild = build().commands.find((c) => c.name() === "guild")!;
+    for (const name of ["diff", "apply"]) {
+      const cmd = guild.commands.find((c) => c.name() === name)!;
+      const flags = cmd.options.map((o) => o.long);
+      expect(flags).toContain("--layout");
+      expect(flags).toContain("--var");
+    }
+  });
+
   test("channels exposes the --all flag", () => {
     const channels = build().commands.find((c) => c.name() === "channels")!;
     const flags = channels.options.map((o) => o.long);

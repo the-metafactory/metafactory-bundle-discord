@@ -22,6 +22,12 @@ import type { Command } from "commander";
 import { loadConfig } from "../lib/config";
 import { snapshotGuild, renderSnapshot, unavailableSections } from "../lib/guild/snapshot";
 import { parseLayout, diffLayout, applyPlan, renderPlan, isEmptyPlan, LayoutError } from "../lib/guild/layout";
+import {
+  varLookup,
+  parseVarFlags,
+  PlaceholderError,
+  VarFlagError,
+} from "../lib/guild/placeholders";
 import type { ServerContextOptions } from "../lib/server-context";
 import { resolveContextOrExit, resolveChannelId } from "./shared";
 import {
@@ -115,16 +121,46 @@ interface SnapshotOptions extends ServerContextOptions {
 
 interface DiffOptions extends ServerContextOptions {
   layout: string;
+  /** Repeated `--var NAME=VALUE` (commander stores the long flag as `var`). */
+  var: string[];
 }
 
 interface ApplyOptions extends ServerContextOptions {
   layout: string;
+  var: string[];
   execute?: boolean;
   prune?: boolean;
 }
 
-/** Read + parse a layout file, exiting with a clear message on any failure. */
-function loadLayoutOrExit(file: string): ReturnType<typeof parseLayout> {
+/** Help text for `--var`, identical on `diff` and `apply`. */
+const VAR_FLAG_HELP =
+  "Resolve a __NAME__ placeholder in the layout (repeatable; overrides the environment)";
+
+/**
+ * Turn the repeated `--var` flags into a lookup layered over `process.env`.
+ * Exits with the offending argument on a malformed spec.
+ */
+function varLookupOrExit(specs: string[]): ReturnType<typeof varLookup> {
+  try {
+    return varLookup(process.env, parseVarFlags(specs));
+  } catch (err) {
+    if (err instanceof VarFlagError) {
+      console.error(`--var: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Read + parse a layout file, resolving `__NAME__` placeholders from the
+ * environment and `--var`. Exits with a clear message on any failure — including,
+ * loudly, an unresolved placeholder: shipping the literal token into a live guild
+ * (a broken mention in a channel topic every member can see) is strictly worse
+ * than a refused command.
+ */
+function loadLayoutOrExit(file: string, varSpecs: string[]): ReturnType<typeof parseLayout> {
+  const vars = varLookupOrExit(varSpecs);
   let text: string;
   try {
     text = readFileSync(file, "utf8");
@@ -133,14 +169,39 @@ function loadLayoutOrExit(file: string): ReturnType<typeof parseLayout> {
     process.exit(1);
   }
   try {
-    return parseLayout(text);
+    return parseLayout(text, vars);
   } catch (err) {
+    if (err instanceof PlaceholderError) {
+      console.error(unresolvedPlaceholderReport(file, err));
+      process.exit(1);
+    }
     if (err instanceof LayoutError) {
       console.error(`Layout error in ${file}: ${err.message}`);
       process.exit(1);
     }
     throw err;
   }
+}
+
+/** The refusal message for a layout with unresolved placeholders. */
+export function unresolvedPlaceholderReport(file: string, err: PlaceholderError): string {
+  const lines: string[] = [`Layout ${file} has unresolved placeholders — refusing to continue.`];
+  if (err.missing.length > 0) {
+    lines.push(`  Not set: ${err.missing.map((n) => `__${n}__`).join(", ")}`);
+  }
+  if (err.blank.length > 0) {
+    lines.push(`  Set but empty (counts as unset): ${err.blank.map((n) => `__${n}__`).join(", ")}`);
+  }
+  const example = (err.missing[0] ?? err.blank[0])!;
+  lines.push(
+    "",
+    "Supply each one from the environment or with --var (--var wins):",
+    `  ${example}=<value> discord guild apply --layout ${file} ...`,
+    `  discord guild apply --layout ${file} --var ${example}=<value> ...`,
+    "",
+    "Nothing was read from or written to Discord."
+  );
+  return lines.join("\n");
 }
 
 /** Shared `-g/-s` context flags applied to each leaf subcommand. */
@@ -438,12 +499,19 @@ export function registerGuild(program: Command): void {
           "  exits 1 if the plan is non-empty (drift) or 0 if empty (in sync). Mutates\n" +
           "  nothing. Matching is BY NAME (channels by name+parent); a rename reads as\n" +
           "  delete+create. Live resources absent from the layout are reported\n" +
-          "  'unmanaged' and are never deleted."
+          "  'unmanaged' and are never deleted.\n" +
+          "\n" +
+          "  __NAME__ placeholders in the layout resolve from the environment (or\n" +
+          "  --var NAME=VALUE) BEFORE the diff, so the comparison is against real\n" +
+          "  values. An unresolved placeholder is an error, not a diff."
       )
       .requiredOption("--layout <file>", "Path to the guild-layout YAML file")
+      .option("--var <NAME=VALUE>", VAR_FLAG_HELP, collect, [])
   ).action(async (opts: DiffOptions) => {
+    // Layout first: a bad layout or an unresolved placeholder fails before any
+    // config/token resolution and before a single Discord call.
+    const layout = loadLayoutOrExit(opts.layout, opts.var);
     const { botToken, guildId } = resolveGuildContext(opts);
-    const layout = loadLayoutOrExit(opts.layout);
     const snapshot = await snapshotGuild(botToken, guildId);
     const plan = diffLayout(layout, snapshot);
 
@@ -469,14 +537,22 @@ export function registerGuild(program: Command): void {
           "  reported 'unmanaged', never deleted. Deletion requires BOTH a prune: block\n" +
           "  in the layout naming the resource AND the --prune flag here.\n" +
           "\n" +
-          "  Matching is BY NAME (channels by name+parent); a rename reads as delete+create."
+          "  Matching is BY NAME (channels by name+parent); a rename reads as delete+create.\n" +
+          "\n" +
+          "  PLACEHOLDERS: __NAME__ tokens anywhere in the layout resolve from the\n" +
+          "  environment, or from --var NAME=VALUE (which wins), before anything is\n" +
+          "  planned. An unresolved placeholder REFUSES the run — a literal __NAME__\n" +
+          "  must never be written into a live guild."
       )
       .requiredOption("--layout <file>", "Path to the guild-layout YAML file")
+      .option("--var <NAME=VALUE>", VAR_FLAG_HELP, collect, [])
       .option("--execute", "Actually mutate the guild (without this flag: dry run)")
       .option("--prune", "Delete resources listed under the layout's prune: block (destructive)")
   ).action(async (opts: ApplyOptions) => {
+    // Layout first: an unresolved placeholder must stop the run before any
+    // Discord call, not halfway through a plan.
+    const layout = loadLayoutOrExit(opts.layout, opts.var);
     const { botToken, guildId } = resolveGuildContext(opts);
-    const layout = loadLayoutOrExit(opts.layout);
     const snapshot = await snapshotGuild(botToken, guildId);
     const plan = diffLayout(layout, snapshot, { prune: opts.prune === true });
 

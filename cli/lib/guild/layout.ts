@@ -26,6 +26,12 @@
  *      Discord and in the layout in lockstep, or accept the create (and prune the
  *      orphan deliberately).
  *
+ * PLACEHOLDERS RESOLVE FIRST. `__NAME__` tokens anywhere in the document are
+ * substituted from the environment / `--var` before validation and before the
+ * diff (see `./placeholders`), so a layout can carry a live id — a bot mention in
+ * a channel topic — without committing it. An unresolved placeholder is a hard
+ * error, never a pass-through.
+ *
  * DEPENDENCY-ORDERED APPLY. Actions run roles → categories → channels → overwrites
  * → forum tags → guild settings → (prune deletes). `applyPlan` seeds a name→id map
  * from the snapshot and extends it as each create resolves, so a channel can
@@ -66,6 +72,7 @@ import {
   type ModifyGuildSpec,
   type WelcomeChannel,
 } from "./settings";
+import { resolvePlaceholders, NO_VARS, type VarLookup } from "./placeholders";
 import {
   isUnavailable,
   type GuildSnapshot,
@@ -416,8 +423,14 @@ function parsePrune(value: unknown): LayoutPrune {
  * Parse + schema-validate a guild layout from YAML text. Hand-rolled validation
  * (no zod — runtime deps stay commander+yaml). Every error is a `LayoutError`
  * whose message names the offending key and its location in the document.
+ *
+ * `__NAME__` placeholders are resolved from `vars` FIRST — before validation, and
+ * therefore before diffing — so the plan, the diff and the apply all see real
+ * values and a resolved layout matching the guild still diffs to nothing. With no
+ * `vars` nothing resolves and a layout carrying placeholders throws
+ * `PlaceholderError`: a literal `__NAME__` must never reach a live guild.
  */
-export function parseLayout(yamlText: string): Layout {
+export function parseLayout(yamlText: string, vars: VarLookup = NO_VARS): Layout {
   let doc: unknown;
   try {
     doc = YAML.parse(yamlText);
@@ -427,6 +440,8 @@ export function parseLayout(yamlText: string): Layout {
   if (doc === null || doc === undefined) {
     throw new LayoutError("layout is empty");
   }
+  // Throws PlaceholderError (naming every missing variable) before any validation.
+  doc = resolvePlaceholders(doc, vars);
   const root = requireObject(doc, "(root)");
   rejectUnknownKeys(
     root,
