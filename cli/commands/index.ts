@@ -10,6 +10,7 @@
 
 import type { Command } from "commander";
 import { registerPost } from "./post";
+import { registerDm } from "./dm";
 import { registerRead } from "./read";
 import { registerChannels } from "./channels";
 import { registerChannel } from "./channel";
@@ -25,6 +26,7 @@ import { registerConfig } from "./config";
 
 export function registerAll(program: Command): void {
   registerPost(program);
+  registerDm(program);
   registerRead(program);
   registerChannels(program);
   registerChannel(program);

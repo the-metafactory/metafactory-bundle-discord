@@ -24,7 +24,20 @@ function names(cmd: Command): string[] {
 
 describe("registerAll", () => {
   test("registers the same top-level commands, in order", () => {
-    expect(names(build())).toEqual(["post", "read", "channels", "channel", "threads", "thread", "forum", "role", "perms", "event", "webhook", "guild", "config"]);
+    expect(names(build())).toEqual(["post", "dm", "read", "channels", "channel", "threads", "thread", "forum", "role", "perms", "event", "webhook", "guild", "config"]);
+  });
+
+  test("dm carries no channel-addressing option — a DM can never become a post", () => {
+    const dm = build().commands.find((c) => c.name() === "dm")!;
+    const flags = dm.options.map((o) => o.long);
+    // The whole point of the verb: no --channel, no --thread, no --guild, no
+    // --server. If one of these is ever added, a misconfigured DM could land in
+    // a room full of people, which is the failure this command exists to refuse.
+    expect(flags).not.toContain("--channel");
+    expect(flags).not.toContain("--thread");
+    expect(flags).not.toContain("--guild");
+    expect(flags).not.toContain("--server");
+    expect(flags).toContain("--to");
   });
 
   test("role has member-assignment + lifecycle subcommands", () => {

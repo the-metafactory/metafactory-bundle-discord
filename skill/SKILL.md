@@ -30,6 +30,30 @@ discord threads                            # List active threads
 
 Run `discord --help` for full command list.
 
+### Direct messages — `dm`
+
+```bash
+discord dm "Build is green"                 # to the configured dmRecipient
+discord dm --to <userId> "Build is green"   # to someone else
+discord dm --file chart.png "Latest run"    # attachments, same as post
+discord config set dmRecipient <userId>     # set the default recipient once
+```
+
+**A DM never falls back to a channel.** `dm` takes no `--channel`, resolves no
+guild and has no implicit recipient: with neither `--to` nor a configured
+`dmRecipient` it **refuses and exits 1**. That is deliberate — the failure worth
+designing against is a private note quietly landing in a room full of people, so
+a misconfigured DM fails loudly rather than becoming a post.
+
+Recipient precedence is `--to` > `dmRecipient`, and nothing else. The recipient
+must be a bare user id (17-20 digits); a username is refused rather than guessed
+at. Discord requires the bot to share a guild with the recipient and the
+recipient to accept DMs from server members — it answers both with a bare 403,
+which the CLI surfaces verbatim rather than guessing which one you hit.
+
+`dmRecipient` is operator-private, like the token beside it: it belongs in the
+principal's own `cli.yaml`, never in a shipped or example config.
+
 ### Multi-server (posting to a guild other than the default)
 
 The bot can be in several guilds with the same token. Target another guild
@@ -219,6 +243,7 @@ For the end-to-end guild-authoring walkthrough, read
 | Action | Workflow | Trigger Examples |
 |--------|----------|------------------|
 | **Post** | [Post](Workflows/Post.md) | "post to discord", "send message to discord", "notify channel", "announce" |
+| **DM** | (this file, "Direct messages") | "dm me", "send me a direct message", "notify me privately", "DM on merge" |
 | **Read** | [Read](Workflows/Read.md) | "read discord", "check discord messages", "what's happening on discord" |
 | **GuildSetup** | [GuildSetup](Workflows/GuildSetup.md) | "set up a guild", "author a guild layout", "snapshot the guild", "apply a layout", "diff the guild" |
 
