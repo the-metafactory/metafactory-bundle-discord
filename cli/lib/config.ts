@@ -66,6 +66,14 @@ export interface DiscordCliConfig {
   guildId?: string;
   /** Default channel name to post to */
   defaultChannel?: string;
+  /**
+   * Default recipient user id for `discord dm` — the one person this bot DMs
+   * when no `--to` is given. There is deliberately no fallback: absent this (and
+   * absent `--to`), `dm` refuses rather than guessing a recipient. Operator-
+   * private, like the tokens beside it — it belongs in the principal's own
+   * config, never in a shipped/example one.
+   */
+  dmRecipient?: string;
   /** Named channel configs */
   channels?: Record<string, ChannelConfig>;
   /** Named server profiles for guilds other than the top-level (grove) one */

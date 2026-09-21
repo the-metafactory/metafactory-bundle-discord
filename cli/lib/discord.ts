@@ -97,6 +97,43 @@ interface DiscordApiActiveThreadsResponse {
 /**
  * Post a message via bot API.
  */
+/**
+ * Open (or re-open) the bot's DM channel with a single user and return its
+ * channel id. Discord makes this idempotent — the same recipient always yields
+ * the same channel — so there is nothing to cache and no channel to clean up.
+ *
+ * A DM is NOT a guild post: there is no guild, no channel name to resolve, and
+ * no audience beyond the one recipient. That is why `dm` takes no `--channel`
+ * and can never fall back to one; a misconfigured DM fails, it does not
+ * quietly become a post everybody can read.
+ *
+ * Requires the bot to share a guild with the recipient, and the recipient to
+ * allow DMs from server members. Discord answers both with 403 and no detail,
+ * which the caller surfaces verbatim rather than guessing between them.
+ */
+export async function openDmChannel(
+  botToken: string,
+  recipientId: string
+): Promise<{ success: true; channelId: string } | { success: false; error: string }> {
+  const res = await fetch(`${DISCORD_API}/users/@me/channels`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ recipient_id: recipientId }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    return { success: false, error: `${res.status}: ${text}` };
+  }
+
+  const data = (await res.json()) as { id?: string };
+  if (!data.id) return { success: false, error: "Discord returned no channel id for the DM." };
+  return { success: true, channelId: data.id };
+}
+
 export async function postMessage(
   botToken: string,
   channelId: string,
